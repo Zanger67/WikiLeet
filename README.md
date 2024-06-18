@@ -8,6 +8,8 @@ This is just a small program I whipped up to take the code files I saved for eac
 
 To create a readme, input your information and the directory path and run [`Progress_Updater.ipynb`](Progress_Updater.ipynb).
 
+> Some sample images from an export are visible at the bottom of this README
+
 
 ## Files to Note
 ### Runnable Files
@@ -26,3 +28,8 @@ To create a readme, input your information and the directory path and run [`Prog
 ### Data Files
 - [`leetcode question list query.json`](<question_data/leetcode question list query.json>) - Direct query to Leetcode's GraphQL API for all question info including topics, acceptance rates, full names, etc.
 - `leetcode_question_details.pkl` & `leetcode_question_topics.pkl` - Binary file exports using the `pickle` `Python` package to export and save dictionaries for later use.
+
+
+## Images
+![Stats and Details](misc/image-1.png?raw=true)
+![Mediums Eg](misc/image.png?raw=true)
