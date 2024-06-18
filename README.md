@@ -32,4 +32,19 @@ To create a readme, input your information and the directory path and run [`Prog
 
 ## Images
 ![Stats and Details](misc/image-1.png?raw=true)
+
+</br>
+
+-----
+</br>
+</br>
+
 ![Mediums Eg](misc/image.png?raw=true)
+
+</br>
+
+-----
+</br>
+</br>
+
+![Markdown Code](misc/image-2.png?raw=true)
