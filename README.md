@@ -12,7 +12,7 @@ To create a readme, input your information and the directory path and run [`Prog
 
 
 ## How to Use
-### `(Progress Updater Juypter Notebook)[Progress_Updater.ipynb]`
+### [Progress Updater Juypter Notebook](Progress_Updater.ipynb)
 This file is a Juypter Notebook file (python based) that takes an inventory of the code files in your repo and outputs a markdown README.md file like you see below, sorting by question, grouping by difficulty, and linking to the official leetcode website!
 
 `.py` verion also avalible under the same name.
