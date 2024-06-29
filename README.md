@@ -1,5 +1,7 @@
 # Leetcode Progress Updater
 
+> [Click here for a sample repo (my LeetCode repo)](https://github.com/Zanger67/leetcode)
+
 Alright, I've been grinding for a while now. I need a break from doing questions. How should I do that. Walk? Nah it's raining. YouTube? Kinda bored of that. Plus, I've watched too many shorts recentlly. 
 
 I know, let's create a way to keep track of all the questions done and code I've written for Leetcode. This totally isn't an addiction.
