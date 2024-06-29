@@ -11,6 +11,17 @@ To create a readme, input your information and the directory path and run [`Prog
 > Some sample images from an export are visible at the bottom of this README
 
 
+## How to Use
+### `(Progress Updater Juypter Notebook)[Progress_Updater.ipynb]`
+This file is a Juypter Notebook file (python based) that takes an inventory of the code files in your repo and outputs a markdown README.md file like you see below, sorting by question, grouping by difficulty, and linking to the official leetcode website!
+
+`.py` verion also avalible under the same name.
+
+***MAKE SURE TO ADJUST THE PATHS BEFORE RUNNING IT. SEE [THIS](https://github.com/Zanger67/leetcode) REPO FOR AN EXAMPLE OR SEE BELOW.***
+
+### LeetCode Record - Public.xlsx
+A spreadsheet I used to track my progress that shows a graph of your progrses by day and cumulatively for Mediums and Hards. Make sure to download and keep it separate if you wish to use this file.
+
 ## Files to Note
 ### Runnable Files
 - [`Progress_Updater.ipynb`](Progress_Updater.ipynb) - File to run to update your README.md file
@@ -31,6 +42,7 @@ To create a readme, input your information and the directory path and run [`Prog
 
 
 ## Images
+*Example from my own [repo](https://github.com/Zanger67/leetcode)*
 ![Stats and Details](misc/image-1.png?raw=true)
 
 </br>
@@ -47,4 +59,12 @@ To create a readme, input your information and the directory path and run [`Prog
 </br>
 </br>
 
+*View of the actual markdown before being rendered*
 ![Markdown Code](misc/image-2.png?raw=true)
+
+-----
+</br>
+</br>
+
+*View of my stats spreadsheet that I used to track my progress*
+![Stats from Excel Example](misc/image-3.png?raw=true)
