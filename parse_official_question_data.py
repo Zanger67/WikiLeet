@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[21]:
+# In[ ]:
 
 
 import pandas as kungfupanda
@@ -19,7 +19,7 @@ load_dotenv(find_dotenv(), override=True)
 # The `.json` file in this repository is pulled straight from Leetcode's GraphQL. This Notebook parses the data, extracting the relevant data, and stores the newly formed dictionaries it in `.pkl` files for the `Progress_Updater.ipynb` process to make use of later. 
 # 
 
-# In[22]:
+# In[ ]:
 
 
 QUESTION_DATA_FOLDER_PATH = getenv('QUESTION_DATA_PATH')
@@ -34,7 +34,7 @@ dataFile = jsonFiles[0]
 print('File to use:\t', dataFile)
 
 
-# In[23]:
+# In[ ]:
 
 
 questionList        = kungfupanda.read_json(dataFile)
@@ -68,7 +68,7 @@ print(questionDetails)
 print(questionTopics)
 
 
-# In[24]:
+# In[ ]:
 
 
 with open(join(QUESTION_DATA_FOLDER_PATH, 'leetcode_question_details.pkl'), 'wb') as fp:

@@ -1,0 +1,7 @@
+# user_data is for storing processed data for your instance so it doesn't recompute it every
+# time you run the script. This gitignore is here so that the empty folder appears in the repo,
+# but doesn't upload anything from inside.
+*
+
+# Exception for this .gitignore file
+!.gitignore
