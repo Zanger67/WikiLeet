@@ -1,15 +1,19 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[197]:
 
 
-import pandas as kungfupanda        # pandas
-from os import listdir              # for file retrieval
+import pandas as kungfupanda                    # pandas
+from os import listdir                          # for file retrieval
 from os.path import isfile, join
 
-import re                           # for regex file name matching
-from typing import List             # misc.
+from os import getenv                           # for environment variables
+from dotenv import load_dotenv, find_dotenv     # / config purposes (.env file)
+load_dotenv(find_dotenv(), override=True)
+
+import re                                       # for regex file name matching
+from typing import List                         # misc.
 
 
 # # Notebook for Updating Stats and Links on README
@@ -17,11 +21,11 @@ from typing import List             # misc.
 # 
 # Just something I whipped up for fun. :)
 
-# In[ ]:
+# In[198]:
 
 
-readme_path             = '../'
-leetcodePathFromReadme  = 'my-submissions/'
+readme_path             = getenv('README_PATH')
+leetcodePathFromReadme  = getenv('QUESTIONS_PATH_FROM_README')
 leetcodePathReference   = join(readme_path, leetcodePathFromReadme)
 leetcodeFiles           = [x for x in listdir(leetcodePathReference) if isfile(join(leetcodePathReference, x))]
 
@@ -51,14 +55,14 @@ print(f'Total of {len(contestLeetcodeFiles)} contest files found.')
 # 
 # UpdateLanguage $\rightarrow$ if a question already has a solution, this is called instead to insert the new file link to the existing row details.
 
-# In[ ]:
+# In[199]:
 
 
 # Categories besides those in lists
 categories = set(['Daily', 'Weekly Premium', 'Contest', 'Favourite'])
 
 
-# In[ ]:
+# In[200]:
 
 
 def addCase(level:      str, 
@@ -87,7 +91,7 @@ def addCase(level:      str,
     return output
 
 
-# In[ ]:
+# In[201]:
 
 
 def updateLanguage(orig, language, path) :  
@@ -111,7 +115,7 @@ def updateLanguage(orig, language, path) :
     return orig
 
 
-# In[ ]:
+# In[202]:
 
 
 # Update the category of a question e.g. adding 'Daily' or 'Weekly Premium' to the box
@@ -126,7 +130,7 @@ def updateCategory(orig, category) :
 
 # # Retrieving Question Topics and Details from PICKLE File
 
-# In[ ]:
+# In[203]:
 
 
 import pickle           # picke is used to pull the stored dict
@@ -136,7 +140,7 @@ question_details_file   = 'leetcode_question_details.pkl'
 question_topics_file    = 'leetcode_question_topics.pkl'
 
 
-# In[ ]:
+# In[204]:
 
 
 # schema: key=int(questionNumber)   val=(title, titleSlug, paidOnly, difficulty, acRate)
@@ -155,7 +159,7 @@ with open(join(question_data_folder, question_topics_file), 'rb') as fp:
 # # Parsing Files
 # Question file parsing occurs here. It organizes it into 3 different lists, separated by difficulty and sorted by question number afterwards.
 
-# In[ ]:
+# In[205]:
 
 
 easyQuestions   = [] 
@@ -168,7 +172,7 @@ counter = {}
 moreThanOnce = 0
 
 
-# In[ ]:
+# In[206]:
 
 
 # Parse one leetcode answer file in the submissions folder
@@ -260,7 +264,7 @@ def parseCase(leetcodeFile: str, altTitle: str, subFolderPath: str, contest: boo
     return True
 
 
-# In[ ]:
+# In[207]:
 
 
 # Parsing primary files
@@ -268,7 +272,7 @@ for leetcodeFile in leetcodeFiles :
     parseCase(leetcodeFile, '', '', False)
 
 
-# In[ ]:
+# In[208]:
 
 
 # Parsing contest files & folforders
@@ -278,7 +282,7 @@ for leetcodeContestFile in contestLeetcodeFiles :
     parseCase(leetcodeFile, contestFolder, contestFolder, True)
 
 
-# In[ ]:
+# In[209]:
 
 
 print(easyQuestions)
@@ -286,7 +290,7 @@ print(mediumQuestions)
 print(hardQuestions)
 
 
-# In[ ]:
+# In[210]:
 
 
 # Sorting by question number
@@ -298,7 +302,7 @@ hardQuestions   = sorted(hardQuestions,   key=lambda x: x[1])
 # # List-Based Categories
 # Updating `Category` columns based on the lists in the `Lists` directory.
 
-# In[ ]:
+# In[211]:
 
 
 listsDir = 'Lists/'
@@ -309,7 +313,7 @@ listFileNames = [x for x in listdir(listsDir) if isfile(join(listsDir, x))
 print(listFileNames)
 
 
-# In[ ]:
+# In[212]:
 
 
 ''' Format for lists file is as follows:
@@ -339,7 +343,7 @@ def getList(fileName, filePath) -> set[int] :
     
 
 
-# In[ ]:
+# In[213]:
 
 
 listData = {}
@@ -364,7 +368,7 @@ print(listDataMerged)
 listData = None # Free up memory
 
 
-# In[ ]:
+# In[214]:
 
 
 def updateListCount(lists: str) -> None :
@@ -373,7 +377,7 @@ def updateListCount(lists: str) -> None :
         itemsPerListDataCount[l] += 1
 
 
-# In[ ]:
+# In[215]:
 
 
 def updateQuestionTypeWithLists(listData: dict[int, str], questions: List[List[str]]) -> None :
@@ -383,7 +387,7 @@ def updateQuestionTypeWithLists(listData: dict[int, str], questions: List[List[s
             updateListCount(listData[questions[i][1]])
 
 
-# In[ ]:
+# In[216]:
 
 
 updateQuestionTypeWithLists(listDataMerged, easyQuestions)
@@ -396,7 +400,7 @@ print([f'{x}: {itemsPerListDataCount.get(x)}/{itemsPerListData.get(x)}' for x in
 # # DataFrames
 # Conversion into DataFrames and declaration of respective column headers occurs here.
 
-# In[ ]:
+# In[217]:
 
 
 columns = ['Level', 
@@ -429,7 +433,7 @@ dfMedium    = dfMedium.astype(typeClarification)
 dfHard      = dfHard.astype(typeClarification)
 
 
-# In[ ]:
+# In[218]:
 
 
 # Helper method for outputing just to make code cleaner
@@ -445,7 +449,7 @@ def subLevel(level: str) -> str :
             return 'Unknown'
 
 
-# In[ ]:
+# In[219]:
 
 
 print(counter, sum(counter.values()))
@@ -465,7 +469,7 @@ statsMatrix[0]  = [''] + \
 # ## Stats by Group Parsing
 # Going row by row to calculate the respective values :v
 
-# In[ ]:
+# In[220]:
 
 
 temp = [easyQuestions, mediumQuestions, hardQuestions] # For summing number of unique question later
@@ -491,7 +495,7 @@ statsMatrix[-1] = ['**Total**'] \
 temp = None
 
 
-# In[ ]:
+# In[221]:
 
 
 # Conversion to DataFrame
@@ -505,7 +509,7 @@ print(statsMatrixDf.to_markdown(index=False))
 # # Counts per List
 # These are for lists such as my favourites, the Neetcode150, etc.
 
-# In[ ]:
+# In[222]:
 
 
 # Get alternate names
@@ -523,7 +527,7 @@ def getAlternateNames() -> dict[str, str] :
     return output
 
 
-# In[ ]:
+# In[223]:
 
 
 # No. Completed / No. Total
@@ -552,15 +556,16 @@ print(listStatOutputs)
 # 
 # Uses the built-in DataFrame `.to_markdown()` for outputting.
 
-# In[ ]:
+# In[224]:
 
 
 readmePath = join(readme_path, 'README.md')
-
+print(readmePath)
 with open(readmePath, 'w') as file :
     file.write('# LeetCode Records\n\n')
 
-    file.write('Profile: [Zanger](https://leetcode.com/u/Zanger/)\n\n')
+    username = getenv('LEETCODE_USERNAME')
+    file.write(f'Profile: [{username}](https://leetcode.com/u/{username}/)\n\n')
 
     file.write('> *Note: if there are multiple files, it\'s likely a case of me having multiple solutions.*\n\n')
 
@@ -592,4 +597,10 @@ with open(readmePath, 'w') as file :
 
     file.write('\n\n## Hard\n')
     file.write(dfHard.to_markdown(index=False))
+
+
+# In[ ]:
+
+
+
 
