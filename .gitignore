@@ -2,3 +2,6 @@
 ~$*
 
 testing/
+*.env
+
+__pycache__/
