@@ -8,13 +8,14 @@ I know, let's create a way to keep track of all the questions done and code I've
 
 This is just a small program I whipped up to take the code files I saved for each question I've done on Leetcode and propogate a README with them, sorted by difficulty and question number, linking them to my solutions and the actual webpage. Also shows stats and different languages.
 
-To create a readme, input your information and the directory path and run [`Progress_Updater.ipynb`](Progress_Updater.ipynb).
+To create a readme, input your information and the directory path and run [`parse_code_files.ipynb`](parse_code_files.ipynb).
 
 > Some sample images from an export are visible at the bottom of this README
 
 
 ## How to Use
-### [Progress Updater Juypter Notebook](Progress_Updater.ipynb)
+*Under construction*
+<!-- ### [Progress Updater Juypter Notebook](Progress_Updater.ipynb)
 This file is a Juypter Notebook file (python based) that takes an inventory of the code files in your repo and outputs a markdown README.md file like you see below, sorting by question, grouping by difficulty, and linking to the official leetcode website!
 
 `.py` verion also avalible under the same name.
@@ -40,7 +41,7 @@ A spreadsheet I used to track my progress that shows a graph of your progrses by
 
 ### Data Files
 - [`leetcode question list query.json`](<question_data/leetcode question list query.json>) - Direct query to Leetcode's GraphQL API for all question info including topics, acceptance rates, full names, etc.
-- `leetcode_question_details.pkl` & `leetcode_question_topics.pkl` - Binary file exports using the `pickle` `Python` package to export and save dictionaries for later use.
+- `leetcode_question_details.pkl` & `leetcode_question_topics.pkl` - Binary file exports using the `pickle` `Python` package to export and save dictionaries for later use. -->
 
 
 ## Images
