@@ -5,3 +5,6 @@ testing/
 *.env
 
 __pycache__/
+
+
+export_all_notebooks.ipynb

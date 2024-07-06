@@ -13,6 +13,7 @@ from os import stat
 
 from typing import Set, Dict, List, Tuple       # misc. QOL imports
 from collections import defaultdict
+from icecream import ic                         # for debugging / outputs
 
 from os.path import getmtime, getctime          # retreiving file creation/modification times
 from datetime import datetime
@@ -177,6 +178,7 @@ def retrieveQuestionDetails() -> dict :
         
     if not isfile(join(question_data_folder, question_details_file)) :
         print('\nError in parsing official question data. Exiting...')
+        print()
         exit()
     else : 
         print('\nFiles found. Importing now...\n')
@@ -185,8 +187,8 @@ def retrieveQuestionDetails() -> dict :
     # schema: key=int(questionNumber)   val=(title, titleSlug, paidOnly, difficulty, acRate)
     with open(join(question_data_folder, question_details_file), 'rb') as fp:
         questionDetailsDict = pickle.load(fp)
-        print('Question Details dictionary')
-        print(questionDetailsDict)
+        # print('Question Details dictionary')
+        # print(questionDetailsDict)
 
     return questionDetailsDict
 
@@ -206,6 +208,7 @@ def retrieveQuestionTopics() -> dict :
         
     if not isfile(join(question_data_folder, question_topics_file)) :
         print('\nError in parsing official question data. Exiting...')
+        print()
         exit()
     else : 
         print('\nFiles found. Importing now...\n')
@@ -214,8 +217,8 @@ def retrieveQuestionTopics() -> dict :
     questionTopicsDict = None
     with open(join(question_data_folder, question_topics_file), 'rb') as fp:
         questionTopicsDict = pickle.load(fp)
-        print('Question Details dictionary')
-        print(questionTopicsDict)
+        # print('Question Details dictionary')
+        # print(questionTopicsDict)
 
     return questionTopicsDict
 
@@ -364,11 +367,11 @@ def parseContextFiles(txtFiles: str,
                       fileLatestTimes: dict, 
                       reprocessMarkdown: Set[int]) -> None:
     for fileName in txtFiles :
-        print(f'Context file found: {fileName}')
+        # print(f'Context file found: {fileName}')
 
         number      = int(re.sub("[^0-9]", "", fileName.split(' ')[0]))
         if number not in questionData :
-            print(f'Error. No question solution found for {fileName = }')
+            print(f'Error. No question solution found for context file ({fileName = })')
             continue
         
         questionData[number]['contextFile'] = join(LEETCODE_PATH_FROM_README, fileName)
@@ -443,7 +446,7 @@ def processListData(questionData: dict,
             if q in questionData :
                 questionData[q]['categories'].add(file)
                 
-    print(listData)
+    # print(listData)
 
     return listData
 
@@ -483,8 +486,8 @@ MARKDOWN_PATH = getenv('QUESTION_MARKDOWNS_PATH_FROM_README')
 MARKDOWN_TO_SUBMISSIONS = '../' * MARKDOWN_PATH.count('/') + QUESTIONS_FOLDER_FROM_README
 
 QUESTION_DATA_FOLDER_PATH    = getenv('QUESTION_DATA_PATH')
-QUESTION_TOPICS_FILE    = getenv('LEETCODE_QUESTION_TOPICS')
-QUESTION_DETAILS_FILE   = getenv('LEETCODE_QUESTION_DETAILS')
+QUESTION_TOPICS_FILE         = getenv('LEETCODE_QUESTION_TOPICS')
+QUESTION_DETAILS_FILE        = getenv('LEETCODE_QUESTION_DETAILS')
 
 LANGUAGE_EQUIVS = {
     'bash': 'Bash',
@@ -552,6 +555,7 @@ def generate_markdown(questionNo: int,
         date_done = questionData['date_done']
         date_modified = questionData['date_modified']
         
+        f.write(f'*All prompts are owned by LeetCode. To view the prompt, click the title link above.*\n\n')
         f.write('*[Back to top](<../README.md>)*\n\n')
 
         f.write('------\n\n')
@@ -559,14 +563,13 @@ def generate_markdown(questionNo: int,
         f.write(f'> *Last updated : {date_modified:%B %d, %Y}*\n\n\n')
         f.write('------\n\n')
 
-
+        BY_TOPIC_FOLDER_PATH = getenv('TOPIC_MARKDOWN_PATH_IN_MARKDOWNS_FOLDER')
         tpcs = 'N/A' if questionNo not in questionTopicsDict else questionTopicsDict[questionNo]
-        f.write(f'> **Related Topics** : **' + ', '.join(tpcs) + '**\n>\n')
+        f.write(f'> **Related Topics** : **' + ', '.join([f'[{x}](<{join(BY_TOPIC_FOLDER_PATH, x)}.md>)' for x in tpcs]) + '**\n>\n')
+
         acrate = 'Unknown' if questionNo not in questionDetailsDict else f'{questionDetailsDict[questionNo][4]} %'
         f.write(f'> **Acceptance Rate** : **' + f'{acrate}' + '**\n\n\n')
         f.write('------\n\n')
-
-        f.write(f'*To see the question prompt, click the title.*\n\n')
 
         if 'contextFile' in questionData:
             with open(join(README_PATH, questionData['contextFile']), 'r') as contextFile:
@@ -587,7 +590,8 @@ def generate_markdown(questionNo: int,
             if lang.lower() in LANGUAGE_EQUIVS :
                 lang = LANGUAGE_EQUIVS[lang.lower()]
             else :
-                print(f'{lang = }')
+                print()
+                print(f'Lang equiv not found: {lang = }')
             f.write(f'### {lang}\n')
             for solution in solutions :
                 name = solution.rfind('/') + 1
@@ -615,7 +619,6 @@ def processMarkdownGeneration(questionData: dict,
                               questionTopicsDict: dict = retrieveQuestionTopics()) -> None :
     for questionNo, dta in questionData.items() :
         if questionNo in reprocessMarkdown :
-            # print(f'Generating markdown for question {questionNo}. {dta["title"]}')
             generate_markdown(questionNo, 
                               questionData, 
                               questionDetailsDict=questionDetailsDict, 
@@ -673,11 +676,8 @@ def convertDataToMatrix(questionData: dict,
         if includeQuestions and question['number'] not in includeQuestions :
             continue
 
-        if sortBy == 'number' :
-            if includeMarkdownFolder :
-                solution_path = join(MARKDOWN_PATH, question['solution'])
-            else : 
-                solution_path = question['solution']
+        if sortBy == 'number' and includeMarkdownFolder :
+            solution_path = join(MARKDOWN_PATH, question['solution'])    
         else :
             solution_path = question['solution']
         
@@ -689,6 +689,7 @@ def convertDataToMatrix(questionData: dict,
                       ', '.join(list(question['categories'])), 
                       f'[solution](<{solution_path}>)', 
                       ', '.join(list(question['languages']))]
+        
         if includeDate :
             currentRow.append(question['date_done'].strftime('%b %d, %Y'))
         
@@ -763,7 +764,7 @@ def questionTopicDataframes(questionData: dict,
                        convertQuestionDataToDataframe(questionData,
                                                       includeDate=True,
                                                       includeQuestions=qs,
-                                                      relativeFolderAdjustment=-getenv('TOPIC_MARKDOWN_PATH_IN_MARKDOWNS_folder').count('/'))))
+                                                      relativeFolderAdjustment=-getenv('TOPIC_MARKDOWN_PATH_IN_MARKDOWNS_FOLDER').count('/'))))
         
     output.sort(key=lambda x: x[1], reverse=True)
     return output
@@ -771,6 +772,8 @@ def questionTopicDataframes(questionData: dict,
 
 # In[ ]:
 
+
+TOPIC_FOLDER = getenv('TOPIC_MARKDOWN_PATH_IN_MARKDOWNS_FOLDER')
 
 def topicBasedMarkdowns(questionData: dict,
                          *,
@@ -784,7 +787,6 @@ def topicBasedMarkdowns(questionData: dict,
     topicDataframes = questionTopicDataframes(questionData=questionData, topicGroupings=topicGroupings)
 
     # For each topic case
-    TOPIC_FOLDER = getenv('TOPIC_MARKDOWN_PATH_IN_MARKDOWNS_folder')
     NOTEBOOK_PATH = join(README_PATH, MARKDOWN_PATH, TOPIC_FOLDER)
 
     # For the overal hosting markdown
@@ -811,6 +813,7 @@ def topicBasedMarkdowns(questionData: dict,
             topic_file.write(f'- [{topic}](<{readme_path}>) ({cnt} completed)\n')
             output.append((topic, readme_path))
 
+    # print(f'topic readme output: {output}')
     return output
 
 
@@ -821,17 +824,19 @@ def topicBasedMarkdowns(questionData: dict,
 # In[ ]:
 
 
-def miscMarkdownGenerations(questionData: dict,
+DAILY_URL = ''
+
+def miscMarkdownGenerations(questionData:   dict,
                             *,
-                            code_length: bool = False,
-                            recent: bool = False,
-                            daily: bool = False) -> str : # output path
+                            code_length:    bool = False,
+                            recent:         bool = False,
+                            daily:          bool = False) -> str : # output path
     df = None
     fileName = None
     header_data = None
     details = None
 
-    print(f'{code_length, recent = }')
+    # print(f'{code_length, recent = }')
     if code_length :
         df = byCodeLengthDataDataframe(questionData)
         fileName    = 'Questions_By_Code_Length.md'
@@ -849,15 +854,17 @@ def miscMarkdownGenerations(questionData: dict,
                 dailyQuestionData[qNo] = qData
         df = byRecentQuestionDataDataframe(dailyQuestionData)
         fileName    = 'Daily_Questions.md'
-        header_data = '# Daily Questions\n\n'
+        # header_data = f'# [Daily Questions](<{DAILY_URL}>)\n\n'
+        header_data = f'# Daily Questions\n\n'
         details     = 'Dates are for the date I completed the ' + \
                       'question so due to the my time zone and how it lines up with ' + \
                       'UTC, it may be off by a day.\n\n'
     else :
         print('Error. No markdown generation specified.')
+        print()
         return ''
 
-    print(f'{fileName = }')
+    # print(f'{fileName = }')
 
     output_path = join(MARKDOWN_PATH, fileName)
     readme_path = join(README_PATH, MARKDOWN_PATH, fileName)
@@ -885,10 +892,10 @@ def miscMarkdownGenerations(questionData: dict,
 # In[ ]:
 
 
-def exportPrimaryReadme(dfQuestions: DataFrame,
+def exportPrimaryReadme(dfQuestions:        DataFrame,
                         *,
-                        additionalSorts: List[str] = [],
-                        topicLinks: List[Tuple[str, str]] = []) -> None :
+                        additionalSorts:    List[str] = [],
+                        topicLinks:         List[Tuple[str, str]] = []) -> None :
     readmePath = join(README_PATH, 'README.md')
     print(readmePath)
     with open(readmePath, 'w') as file :
@@ -924,12 +931,9 @@ def exportPrimaryReadme(dfQuestions: DataFrame,
         if topicLinks :
             file.write('------\n\n')
             file.write(', '.join([f'[{topic}](<{join(MARKDOWN_PATH, link)}>)' for topic, link in topicLinks[1:]]))       
-            # for link in topicLinks[2:] :
-            #     file.write(f', [{link}](<{link}>)')
             file.write('\n\n')
             file.write('------\n\n')
         
-        # file.write('\n'.join(listStatOutputs))
         file.write('\n\n')
 
         file.write('## Questions\n')
@@ -956,14 +960,14 @@ def main(*, recalculateAll: bool = False) -> None :
 
 
     # Files for leetcode questions found
-    print(leetcodeFiles)
+    # print(leetcodeFiles)
     print(f'Total of {len(leetcodeFiles)} files found.')
 
     # Files in contest folders found
-    print(contestLeetcodeFiles)
+    # print(contestLeetcodeFiles)
     print(f'Total of {len(contestLeetcodeFiles)} contest files found.')
 
-    print(questionDetailsDict)
+    # print(questionDetailsDict)
 
 
     # Parsing primary files
@@ -972,7 +976,7 @@ def main(*, recalculateAll: bool = False) -> None :
     reprocessMarkdown = set()
     questionData = {}
 
-    print(f'{fileLatestTimes = }')
+    # print(f'{fileLatestTimes = }')
 
     for leetcodeFile in leetcodeFiles :
         parseCase(leetcodeFile=leetcodeFile,
@@ -1012,32 +1016,26 @@ def main(*, recalculateAll: bool = False) -> None :
     byCodeLength        = miscMarkdownGenerations(questionData, code_length=True)
     byRecentlySolved    = miscMarkdownGenerations(questionData, recent=True)
     dailyQuestions      = miscMarkdownGenerations(questionData, daily=True)
-    altSorts = [f'- [Daily Questions](<{dailyQuestions}>)',
-                f'- [Questions By Code Length](<{byCodeLength}>)',
-                f'- [Questions By Recent](<{byRecentlySolved}>)']
+    altSorts            = [f'- [Daily Questions](<{dailyQuestions}>)',
+                           f'- [Questions By Code Length](<{byCodeLength}>)',
+                           f'- [Questions By Recent](<{byRecentlySolved}>)']
     
+
     completedQsTopicGroupings = getCompletedQuestionsTopicLists(questionData)
     topicMarkdownLinks = topicBasedMarkdowns(questionData, topicGroupings=completedQsTopicGroupings)
-    print(topicMarkdownLinks)
     altSorts.append(f'- [Grouped by Topic](<{topicMarkdownLinks[0]}>)')
+    # print(topicMarkdownLinks)
 
-    # exportPrimaryReadme(questionData)
+
     dfQuestions = convertQuestionDataToDataframe(questionData, includeDate=False, includeMarkdownFolder=True)
-
     exportPrimaryReadme(dfQuestions, additionalSorts=altSorts, topicLinks=topicMarkdownLinks)
 
-
-    # print()
-    # print(f'{reprocessMarkdown = }')
-    # print(f'{len(reprocessMarkdown) = }')
-    # print(f'{fileLatestTimes = }')
+    print(f'Number of individual questions updated/added: {len(reprocessMarkdown)}')
 
 
     writeRecentFileTimes(fileLatestTimes)           # restore for next use
 
-    print(len(questionData))
-
-    # print(f'{questionData = }')
+    # print(len(questionData))
 
     return questionData, reprocessMarkdown
 
@@ -1045,7 +1043,19 @@ def main(*, recalculateAll: bool = False) -> None :
 # In[ ]:
 
 
-main(recalculateAll=False)
+import argparse
+
+
+
+if __name__ == '__main__' :
+    parser = argparse.ArgumentParser()
+    
+    parser.add_argument("-r", 
+                        help="Recompile all markdown files", 
+                        required=False, 
+                        action=argparse.BooleanOptionalAction)
+
+    main(recalculateAll=parser.parse_args().r)
 
 
 # In[ ]:
