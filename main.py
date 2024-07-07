@@ -330,27 +330,40 @@ def parseCase(leetcodeFile:         str, # file name
 # In[ ]:
 
 
+@cache
 def getCodeFiles() -> List[str] :
     return [x for x in listdir(LEETCODE_PATH_REFERENCE) if isfile(join(LEETCODE_PATH_REFERENCE, x))
                                                            and not x.endswith('.txt')
                                                            and not x.endswith('.md')
                                                            and '.' in x]
 
-def getContextFiles() -> List[str] :
-    return [x for x in listdir(LEETCODE_PATH_REFERENCE) if isfile(join(LEETCODE_PATH_REFERENCE, x)) 
-                                                           and (x.endswith('.txt') 
-                                                                or x.endswith('.md') 
-                                                                or '.' not in x)]
-
+@cache
 def getContestFolders() -> List[str] :
     return [x for x in listdir(LEETCODE_PATH_REFERENCE) if not isfile(join(LEETCODE_PATH_REFERENCE, x))]
+
+@cache
+def getContextFiles(contestFolders: List[str] = getContestFolders()) -> List[str] :
+    output = [x for x in listdir(LEETCODE_PATH_REFERENCE) if isfile(join(LEETCODE_PATH_REFERENCE, x)) 
+                                                             and (x.endswith('.txt') 
+                                                                  or x.endswith('.md') 
+                                                                  or '.' not in x)]
+    for folder in contestFolders :
+        output.extend([join(folder, y) for y in listdir(join(LEETCODE_PATH_REFERENCE, folder)) 
+                                if isfile(join(LEETCODE_PATH_REFERENCE, folder, y))
+                                   and (y.endswith('.txt') 
+                                        or y.endswith('.md') 
+                                        or '.' not in y)])
+    return output
 
 def getContestFiles(contestFolders: List[str]) -> List[Tuple[str, str]] :
     contestLeetcodeFiles    = []
 
     for contestFolder in contestFolders :
         contestLeetcodeFiles.extend([(contestFolder, fileName) for fileName in listdir(join(LEETCODE_PATH_REFERENCE, contestFolder)) 
-                                                                if isfile(join(LEETCODE_PATH_REFERENCE, contestFolder, fileName))])
+                                                                if isfile(join(LEETCODE_PATH_REFERENCE, contestFolder, fileName))
+                                                                    and not fileName.endswith('.txt')
+                                                                    and not fileName.endswith('.md')
+                                                                    and '.' in fileName])
     
     return contestLeetcodeFiles
 
@@ -367,9 +380,12 @@ def parseContextFiles(txtFiles: str,
                       fileLatestTimes: dict, 
                       reprocessMarkdown: Set[int]) -> None:
     for fileName in txtFiles :
-        # print(f'Context file found: {fileName}')
+        print(f'Context file found: {fileName}')
 
-        number      = int(re.sub("[^0-9]", "", fileName.split(' ')[0]))
+        if '\\' in fileName :
+            number = int(re.sub("[^0-9]", "", fileName[fileName.find('\\') + 1:].split(' ')[0]))
+        else :
+            number = int(re.sub("[^0-9]", "", fileName.split(' ')[0]))
         if number not in questionData :
             print(f'Error. No question solution found for context file ({fileName = })')
             continue
@@ -564,8 +580,10 @@ def generate_markdown(questionNo: int,
         f.write('------\n\n')
 
         BY_TOPIC_FOLDER_PATH = getenv('TOPIC_MARKDOWN_PATH_IN_MARKDOWNS_FOLDER')
-        tpcs = 'N/A' if questionNo not in questionTopicsDict else questionTopicsDict[questionNo]
-        f.write(f'> **Related Topics** : **' + ', '.join([f'[{x}](<{join(BY_TOPIC_FOLDER_PATH, x)}.md>)' for x in tpcs]) + '**\n>\n')
+        tpcs = 'N/A' if questionNo not in questionTopicsDict \
+                     else ', '.join([f'[{x}](<{join(BY_TOPIC_FOLDER_PATH, x)}.md>)' for x in questionTopicsDict[questionNo]])
+        
+        f.write(f'> **Related Topics** : **' + tpcs + '**\n>\n')
 
         acrate = 'Unknown' if questionNo not in questionDetailsDict else f'{questionDetailsDict[questionNo][4]} %'
         f.write(f'> **Acceptance Rate** : **' + f'{acrate}' + '**\n\n\n')
@@ -1045,8 +1063,6 @@ def main(*, recalculateAll: bool = False) -> None :
 
 import argparse
 
-
-
 if __name__ == '__main__' :
     parser = argparse.ArgumentParser()
     
@@ -1056,10 +1072,4 @@ if __name__ == '__main__' :
                         action=argparse.BooleanOptionalAction)
 
     main(recalculateAll=parser.parse_args().r)
-
-
-# In[ ]:
-
-
-
 
