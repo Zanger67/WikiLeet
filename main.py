@@ -11,6 +11,10 @@ from os import listdir                          # for file retrieval and path ca
 from os.path import isfile, join
 from os import stat
 
+from os import chdir                            # for changing the working directory to ensure
+from os.path import abspath, dirname            # relative paths are from this script's location
+chdir(dirname(abspath(__file__)))               # and not calling location
+
 from typing import Set, Dict, List, Tuple       # misc. QOL imports
 from collections import defaultdict
 from icecream import ic                         # for debugging / outputs
@@ -79,7 +83,8 @@ def addCase(level:              str,
             language:           str,
             notebook_path:      str,
             readme_path:        str,
-            fileLatestTimes:    dict) -> dict :
+            fileLatestTimes:    dict,
+            contestTitle:       str=None) -> dict :
 
     creation_date, modification_date = getCtimeMtimes(notebook_path)
     fileLatestTimes[readme_path] = modification_date
@@ -108,6 +113,7 @@ def addCase(level:              str,
                 'number':               number,
                 'title':                title, 
                 'categories':           categories,
+                'contestTitle':         contestTitle,
                 'date_done':            creation_date,          # First time completed
                 'date_modified':        modification_date,      # Most recent date
                 'solution':             '',
@@ -128,11 +134,15 @@ def updateQuestion(orig:               dict,
                    categories:         Set[str],
                    notebook_path:      str,
                    readme_path:        str,
-                   fileLatestTimes:    dict) -> dict :  
+                   fileLatestTimes:    dict,
+                   contestTitle:       str=None) -> dict :  
     
     # Another question file found
     if language and language not in orig['languages'] :
         orig['languages'].add(language)
+
+    if contestTitle :
+        orig['contestTitle'] = contestTitle
           
     if categories :
         orig['categories'] |= categories
@@ -263,7 +273,7 @@ def parseCase(leetcodeFile:         str, # file name
               questionDetailsDict:  dict = retrieveQuestionDetails(),
               subFolderPath:        str = '',
               altTitle:             str = '',
-              contest:              bool = False) -> bool:
+              contest:              str = None) -> bool:
 
     path = join(LEETCODE_PATH_FROM_README, subFolderPath, leetcodeFile).replace("\\", "/")
     
@@ -290,8 +300,8 @@ def parseCase(leetcodeFile:         str, # file name
     categories  = set()
     language    = leetcodeFile[leetcodeFile.rfind('.') + 1:]
 
-    if len(altTitle) > 0 :
-        title = altTitle
+    # if len(altTitle) > 0 :
+    #     title = altTitle
 
     # Question is from a contest folder
     if contest :
@@ -313,6 +323,7 @@ def parseCase(leetcodeFile:         str, # file name
                                               categories=categories, 
                                               notebook_path=join(README_PATH, path), 
                                               readme_path=path,
+                                              contestTitle=contest,
                                               fileLatestTimes=fileLatestTimes)
         return True
     
@@ -323,6 +334,7 @@ def parseCase(leetcodeFile:         str, # file name
                                    language=language, 
                                    notebook_path=join(README_PATH, path), 
                                    readme_path=path,
+                                   contestTitle=contest,
                                    fileLatestTimes=fileLatestTimes)
     return True
 
@@ -553,7 +565,13 @@ def generate_markdown(questionNo: int,
     if questionNo in questionData :
         questionData = questionData[questionNo]
 
-    title = questionData["title"][questionData["title"].find('[') + 1:questionData["title"].find(']')]
+    title = questionData["title"]
+
+    # Only if title has already been modified and matched to a LeetCode url
+    # E.g. some contest files will be unmatched
+    if '[' in questionData["title"] :
+        title = title[title.find('[') + 1:title.find(']')]
+
     title = f'{questionNo}. {title}'
     
     generate_file_name = f'_{title}.md'
@@ -580,7 +598,7 @@ def generate_markdown(questionNo: int,
         f.write('------\n\n')
 
         BY_TOPIC_FOLDER_PATH = getenv('TOPIC_MARKDOWN_PATH_IN_MARKDOWNS_FOLDER')
-        tpcs = 'N/A' if questionNo not in questionTopicsDict \
+        tpcs = 'N/A' if questionNo not in questionTopicsDict or len(questionTopicsDict[questionNo]) == 0 \
                      else ', '.join([f'[{x}](<{join(BY_TOPIC_FOLDER_PATH, x)}.md>)' for x in questionTopicsDict[questionNo]])
         
         f.write(f'> **Related Topics** : **' + tpcs + '**\n>\n')
@@ -704,9 +722,9 @@ def convertDataToMatrix(questionData: dict,
         currentRow = [question['number'],
                       question['title'], 
                       question['level'], 
-                      ', '.join(list(question['categories'])), 
+                      ', '.join(sorted(list(question['categories']))), 
                       f'[solution](<{solution_path}>)', 
-                      ', '.join(list(question['languages']))]
+                      ', '.join(sorted(list(question['languages'])))]
         
         if includeDate :
             currentRow.append(question['date_done'].strftime('%b %d, %Y'))
@@ -1010,7 +1028,7 @@ def main(*, recalculateAll: bool = False) -> None :
                   questionData=questionData,
                   fileLatestTimes=fileLatestTimes,
                   reprocessMarkdown=reprocessMarkdown, 
-                  altTitle=contestFolder, 
+                #   altTitle=contestFolder, 
                   subFolderPath=contestFolder, 
                   questionDetailsDict=questionDetailsDict,
                   contest=True)
