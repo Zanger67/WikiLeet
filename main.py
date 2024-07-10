@@ -20,24 +20,24 @@ import sys                                      # location rather than the calli
                                                 # e.g. if you call `python someFolder/main.py`
                                                 #      then it will still work.
 
-from typing import Set, Dict, List, Tuple       # misc. QOL imports
-from collections import defaultdict
-from icecream import ic                         # for debugging / outputs
-
 from os.path import getmtime, getctime          # retreiving file creation/modification times
 from datetime import datetime
 import time
 
-import pickle                                   # for saving/loading json records and file 
-                                                # modification date history
-
 from os import getenv                           # for environment variables
 from dotenv import load_dotenv, find_dotenv     # for config purposes (.env file)
 
-import re                                       # for regex file name matching
-from typing import List                         # misc.
+from typing import Set, Dict, List, Tuple       # misc. QOL imports
+from collections import defaultdict
+from icecream import ic                         # for debugging / outputs
 
-from functools import cache                     # for redundancy
+import re                                       # for regex file name matching
+
+import argparse                                 # For command line arguments when calling py script with flags
+import pickle                                   # for saving/loading json records and file 
+                                                # modification date history
+
+from functools import cache                     # for redundancy protection
 
 
 # # Script Configuration
@@ -47,6 +47,7 @@ from functools import cache                     # for redundancy
 # In[ ]:
 
 
+# loading env variables
 load_dotenv(find_dotenv(), override=True)
 
 # NOTE: if the script is being run from a jupyter notebook, then it should
@@ -390,15 +391,10 @@ def parseCase(leetcodeFile:         str, # file name
               contestQNo:           str = None) -> bool:
 
     path = join(LEETCODE_PATH_FROM_README, subFolderPath, leetcodeFile).replace("\\", "/")
-    
-    if leetcodeFile[0].isnumeric() :
-        number      = int(leetcodeFile[:leetcodeFile.find('.')])
-        level       = questionDetailsDict[number][3][0].lower()
-    else :
-        level       = leetcodeFile[0].lower()
-        number      = int(re.sub("[^0-9]", "", leetcodeFile.split(' ')[0]))  # Strips non-numeric chars and any that
-                                                                            # follow the question number
-                                                                         # e.g. 'e123 v1.py' becomes 123
+
+    number      = int(re.search("\d{1,4}", leetcodeFile).group())   # Takes the first full number as the question
+    level       = questionDetailsDict[number][3][0].lower()     # number and uses that as reference
+                                                                # e.g. 'e123 v1.py' becomes 123
 
     creationtime, modificationtime = getCtimeMtimes(join(README_PATH, path))
 
@@ -1173,8 +1169,6 @@ def main(*, recalculateAll: bool = False) -> None :
 
 # In[ ]:
 
-
-import argparse
 
 if __name__ == '__main__' :
     recalcaulateAll = False
