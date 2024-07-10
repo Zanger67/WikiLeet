@@ -507,6 +507,8 @@ def parseContextFiles(txtFiles: str,
 
         if '\\' in fileName :
             number = int(re.search("\d{1,4}", fileName[fileName.find('\\') + 1:]).group())
+        elif '/' in fileName :
+            number = int(re.search("\d{1,4}", fileName[fileName.find('/') + 1:]).group())
         else :
             number = int(re.search("\d{1,4}", fileName).group())
         if number not in questionData :
