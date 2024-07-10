@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[249]:
+# In[342]:
 
 
 import pandas as kungfupanda                    # pandas
@@ -19,6 +19,22 @@ from os.path import abspath, dirname            # relative paths used are from t
 import sys                                      # location rather than the calling location
                                                 # e.g. if you call `python someFolder/main.py`
                                                 #      then it will still work.
+
+try:
+    # if the script is being run from a jupyter notebook, then it should
+    # already be in the correct directory.
+    if 'ipykernel' not in sys.modules:
+        print('Working directory being set to script location.')
+        IS_NOTEBOOK = False
+        chdir(dirname(abspath(__file__)))
+    else :
+        IS_NOTEBOOK = True
+        print('Working directory already set to script location. No need for adjustment')
+except NameError:
+    print('NameError')
+    IS_NOTEBOOK = True
+    pass
+
 
 from typing import Set, Dict, List, Tuple       # misc. QOL imports
 from collections import defaultdict
@@ -41,7 +57,7 @@ from typing import List                         # misc.
 from functools import cache                     # for redundancy
 
 
-# In[250]:
+# In[343]:
 
 
 README_PATH                 = getenv('README_PATH')
@@ -55,14 +71,14 @@ LEETCODE_PATH_REFERENCE     = join(README_PATH, LEETCODE_PATH_FROM_README)
 # 
 # UpdateLanguage $\rightarrow$ if a question already has a solution, this is called instead to insert the new file link to the existing row details.
 
-# In[251]:
+# In[344]:
 
 
 # Categories besides those in lists
 PRIMARY_CATEGORIES = set(['Daily', 'Weekly Premium', 'Contest', 'Favourite'])
 
 
-# In[252]:
+# In[345]:
 
 
 @cache
@@ -85,7 +101,7 @@ def getCtimeMtimes(path: str) -> Tuple[datetime, datetime] :
     return (creation_date, modification_date)
 
 
-# In[253]:
+# In[346]:
 
 
 def addCase(level:              str,
@@ -174,7 +190,7 @@ def addCase(level:              str,
     return output
 
 
-# In[254]:
+# In[347]:
 
 
 def updateQuestion(orig:               dict, 
@@ -241,7 +257,7 @@ def updateQuestion(orig:               dict,
 # # Pickle Processes
 # 
 
-# In[255]:
+# In[348]:
 
 
 @cache
@@ -280,7 +296,7 @@ def retrieveQuestionDetails() -> dict :
     return questionDetailsDict
 
 
-# In[256]:
+# In[349]:
 
 
 @cache
@@ -319,7 +335,7 @@ def retrieveQuestionTopics() -> dict :
     return questionTopicsDict
 
 
-# In[257]:
+# In[350]:
 
 
 def writeRecentFileTimes(fileLatestTimes: dict) -> bool :
@@ -333,7 +349,7 @@ def writeRecentFileTimes(fileLatestTimes: dict) -> bool :
     return True
 
 
-# In[258]:
+# In[351]:
 
 
 def getRecentFileTimes() -> dict :
@@ -351,7 +367,7 @@ def getRecentFileTimes() -> dict :
 # # Parsing Files
 # Question file parsing occurs here. It organizes it into 3 different lists, separated by difficulty and sorted by question number afterwards.
 
-# In[259]:
+# In[352]:
 
 
 # Parse one leetcode answer file in the submissions folder
@@ -431,7 +447,7 @@ def parseCase(leetcodeFile:         str, # file name
     return True
 
 
-# In[260]:
+# In[353]:
 
 
 @cache
@@ -476,7 +492,7 @@ def getContestFiles(contestFolders: List[str]) -> List[Tuple[str, str]] :
 # # Sort TXT Context
 # If .txt notes are placed, this adds them to their respective entry.
 
-# In[261]:
+# In[354]:
 
 
 def parseContextFiles(txtFiles: str, 
@@ -506,7 +522,7 @@ def parseContextFiles(txtFiles: str,
 # # List-Based Categories
 # Updating `Category` columns based on the lists in the `Lists` directory.
 
-# In[262]:
+# In[355]:
 
 
 LISTSDIR = getenv('LISTS_LOCATION')
@@ -522,7 +538,7 @@ def getLists() -> List[str] :
     return listFileNames
 
 
-# In[263]:
+# In[356]:
 
 
 ''' Format for lists file is as follows:
@@ -552,7 +568,7 @@ def getList(fileName, filePath) -> set[int] :
     
 
 
-# In[264]:
+# In[357]:
 
 
 def processListData(questionData: dict,
@@ -574,7 +590,7 @@ def processListData(questionData: dict,
 # # Question Topic Grouping
 # Parses the questions in `questionData` and adds their numbers to appropriate lists so that they can be parsed into their own lists as well as counted.
 
-# In[265]:
+# In[358]:
 
 
 def getCompletedQuestionsTopicLists(questionData: dict,
@@ -595,7 +611,7 @@ def getCompletedQuestionsTopicLists(questionData: dict,
 # # Individual Markdown Generation
 # 
 
-# In[266]:
+# In[359]:
 
 
 README_PATH                     = getenv('README_PATH')
@@ -614,7 +630,7 @@ with open('question_data/language_equivs.json') as f :
     LANGUAGE_EQUIVS = json.load(f)
 
 
-# In[267]:
+# In[360]:
 
 
 # MARKDOWN_TO_SUBMISSIONS
@@ -710,7 +726,7 @@ def generate_markdown(questionNo: int,
     return output_path
 
 
-# In[268]:
+# In[361]:
 
 
 def processMarkdownGeneration(questionData: dict,
@@ -736,7 +752,7 @@ def processMarkdownGeneration(questionData: dict,
 # # DataFrames
 # Conversion into DataFrames and declaration of respective column headers occurs here.
 
-# In[269]:
+# In[362]:
 
 
 COLUMNS = [ 
@@ -760,7 +776,7 @@ TYPE_CLARIFICATION = {
                     }
 
 
-# In[270]:
+# In[363]:
 
 
 def convertDataToMatrix(questionData: dict,
@@ -805,7 +821,7 @@ def convertDataToMatrix(questionData: dict,
     return dataframe_array
 
 
-# In[271]:
+# In[364]:
 
 
 def convertQuestionDataToDataframe(questionData: dict,
@@ -833,7 +849,7 @@ def convertQuestionDataToDataframe(questionData: dict,
 # ## Sorted by Most Recent
 # Using creation dates of code files only; not modification dates.
 
-# In[272]:
+# In[365]:
 
 
 # NOTE: Reversed due to default sorting being in ascending order
@@ -844,7 +860,7 @@ def byRecentQuestionDataDataframe(questionData: dict) -> DataFrame :
 # ## Sorted by Amount of Code
 # Questions with more files on the question and longer submissions will be prioritized.
 
-# In[273]:
+# In[366]:
 
 
 def byCodeLengthDataDataframe(questionData: dict) -> DataFrame :
@@ -854,7 +870,7 @@ def byCodeLengthDataDataframe(questionData: dict) -> DataFrame :
 # # Generation of Markdowns for Each Related Topic
 # 
 
-# In[274]:
+# In[367]:
 
 
 def questionTopicDataframes(questionData: dict,
@@ -876,7 +892,7 @@ def questionTopicDataframes(questionData: dict,
     return output
 
 
-# In[275]:
+# In[368]:
 
 
 TOPIC_FOLDER = getenv('TOPIC_MARKDOWN_PATH_IN_MARKDOWNS_FOLDER')
@@ -930,7 +946,7 @@ def topicBasedMarkdowns(questionData: dict,
 
 # ## Dailies, Recents, etc.
 
-# In[276]:
+# In[369]:
 
 
 DAILY_URL = ''
@@ -998,7 +1014,7 @@ def miscMarkdownGenerations(questionData:   dict,
 # 
 # Uses the built-in DataFrame `.to_markdown()` for outputting.
 
-# In[277]:
+# In[370]:
 
 
 def exportPrimaryReadme(dfQuestions:        DataFrame,
@@ -1049,7 +1065,7 @@ def exportPrimaryReadme(dfQuestions:        DataFrame,
         file.write(dfQuestions.to_markdown(index=False))
 
 
-# In[278]:
+# In[371]:
 
 
 # recalculateAll: forces recalcualtion markdowns for each question irregardless if its
@@ -1148,33 +1164,23 @@ def main(*, recalculateAll: bool = False) -> None :
     return questionData, reprocessMarkdown
 
 
-# In[279]:
+# In[372]:
 
 
 import argparse
 
 if __name__ == '__main__' :
     recalcaulateAll = False
-    print('hiih')
-    try:
-        print('sadfasdfsds')
-        if 'ipykernel' not in sys.modules:
-            chdir(dirname(abspath(__file__)))
-            parser = argparse.ArgumentParser()
-            print('setting working dir')
-    
-            parser.add_argument("-r", 
-                                help="Recompile all markdown files", 
-                                required=False, 
-                                action=argparse.BooleanOptionalAction)
-            print(f'{parser = }')
-            recalcaulateAll = parser.parse_args().r
-        else :
-            print('not running')
-    except NameError:
-        print('exce')
-        pass
 
-    print('hiih')
-    # main(recalculateAll=recalcaulateAll)
+    if not IS_NOTEBOOK :
+        parser = argparse.ArgumentParser()
+
+        parser.add_argument("-r", 
+                            help="Recompile all markdown files", 
+                            required=False, 
+                            action=argparse.BooleanOptionalAction)
+        
+        recalcaulateAll = parser.parse_args().r
+
+    main(recalculateAll=recalcaulateAll)
 
