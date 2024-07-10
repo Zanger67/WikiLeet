@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[342]:
+# In[ ]:
 
 
 import pandas as kungfupanda                    # pandas
@@ -20,22 +20,6 @@ import sys                                      # location rather than the calli
                                                 # e.g. if you call `python someFolder/main.py`
                                                 #      then it will still work.
 
-try:
-    # if the script is being run from a jupyter notebook, then it should
-    # already be in the correct directory.
-    if 'ipykernel' not in sys.modules:
-        print('Working directory being set to script location.')
-        IS_NOTEBOOK = False
-        chdir(dirname(abspath(__file__)))
-    else :
-        IS_NOTEBOOK = True
-        print('Working directory already set to script location. No need for adjustment')
-except NameError:
-    print('NameError')
-    IS_NOTEBOOK = True
-    pass
-
-
 from typing import Set, Dict, List, Tuple       # misc. QOL imports
 from collections import defaultdict
 from icecream import ic                         # for debugging / outputs
@@ -49,7 +33,6 @@ import pickle                                   # for saving/loading json record
 
 from os import getenv                           # for environment variables
 from dotenv import load_dotenv, find_dotenv     # for config purposes (.env file)
-load_dotenv(find_dotenv(), override=True)
 
 import re                                       # for regex file name matching
 from typing import List                         # misc.
@@ -57,7 +40,31 @@ from typing import List                         # misc.
 from functools import cache                     # for redundancy
 
 
-# In[343]:
+# # Script Configuration
+# 1. Loads `env` variables for reference
+# 2. If is a script run, denotes it as such for script flag references and ensures working directory is the script's location rather than the calling directory.
+
+# In[ ]:
+
+
+load_dotenv(find_dotenv(), override=True)
+
+# NOTE: if the script is being run from a jupyter notebook, then it should
+# already be in the correct directory.
+IS_NOTEBOOK = True
+try:
+    if 'ipykernel' not in sys.modules:
+        print('Working directory being set to script location.')
+        IS_NOTEBOOK = False
+        chdir(dirname(abspath(__file__)))
+    else :
+        print('Working directory already set to script location. No need for adjustment')
+except NameError:
+    print('NameError')
+    pass
+
+
+# In[ ]:
 
 
 README_PATH                 = getenv('README_PATH')
@@ -71,14 +78,14 @@ LEETCODE_PATH_REFERENCE     = join(README_PATH, LEETCODE_PATH_FROM_README)
 # 
 # UpdateLanguage $\rightarrow$ if a question already has a solution, this is called instead to insert the new file link to the existing row details.
 
-# In[344]:
+# In[ ]:
 
 
 # Categories besides those in lists
 PRIMARY_CATEGORIES = set(['Daily', 'Weekly Premium', 'Contest', 'Favourite'])
 
 
-# In[345]:
+# In[ ]:
 
 
 @cache
@@ -101,7 +108,7 @@ def getCtimeMtimes(path: str) -> Tuple[datetime, datetime] :
     return (creation_date, modification_date)
 
 
-# In[346]:
+# In[ ]:
 
 
 def addCase(level:              str,
@@ -190,7 +197,7 @@ def addCase(level:              str,
     return output
 
 
-# In[347]:
+# In[ ]:
 
 
 def updateQuestion(orig:               dict, 
@@ -257,7 +264,7 @@ def updateQuestion(orig:               dict,
 # # Pickle Processes
 # 
 
-# In[348]:
+# In[ ]:
 
 
 @cache
@@ -296,7 +303,7 @@ def retrieveQuestionDetails() -> dict :
     return questionDetailsDict
 
 
-# In[349]:
+# In[ ]:
 
 
 @cache
@@ -335,7 +342,7 @@ def retrieveQuestionTopics() -> dict :
     return questionTopicsDict
 
 
-# In[350]:
+# In[ ]:
 
 
 def writeRecentFileTimes(fileLatestTimes: dict) -> bool :
@@ -349,7 +356,7 @@ def writeRecentFileTimes(fileLatestTimes: dict) -> bool :
     return True
 
 
-# In[351]:
+# In[ ]:
 
 
 def getRecentFileTimes() -> dict :
@@ -367,7 +374,7 @@ def getRecentFileTimes() -> dict :
 # # Parsing Files
 # Question file parsing occurs here. It organizes it into 3 different lists, separated by difficulty and sorted by question number afterwards.
 
-# In[352]:
+# In[ ]:
 
 
 # Parse one leetcode answer file in the submissions folder
@@ -447,7 +454,7 @@ def parseCase(leetcodeFile:         str, # file name
     return True
 
 
-# In[353]:
+# In[ ]:
 
 
 @cache
@@ -492,7 +499,7 @@ def getContestFiles(contestFolders: List[str]) -> List[Tuple[str, str]] :
 # # Sort TXT Context
 # If .txt notes are placed, this adds them to their respective entry.
 
-# In[354]:
+# In[ ]:
 
 
 def parseContextFiles(txtFiles: str, 
@@ -522,7 +529,7 @@ def parseContextFiles(txtFiles: str,
 # # List-Based Categories
 # Updating `Category` columns based on the lists in the `Lists` directory.
 
-# In[355]:
+# In[ ]:
 
 
 LISTSDIR = getenv('LISTS_LOCATION')
@@ -538,7 +545,7 @@ def getLists() -> List[str] :
     return listFileNames
 
 
-# In[356]:
+# In[ ]:
 
 
 ''' Format for lists file is as follows:
@@ -568,7 +575,7 @@ def getList(fileName, filePath) -> set[int] :
     
 
 
-# In[357]:
+# In[ ]:
 
 
 def processListData(questionData: dict,
@@ -590,7 +597,7 @@ def processListData(questionData: dict,
 # # Question Topic Grouping
 # Parses the questions in `questionData` and adds their numbers to appropriate lists so that they can be parsed into their own lists as well as counted.
 
-# In[358]:
+# In[ ]:
 
 
 def getCompletedQuestionsTopicLists(questionData: dict,
@@ -611,7 +618,7 @@ def getCompletedQuestionsTopicLists(questionData: dict,
 # # Individual Markdown Generation
 # 
 
-# In[359]:
+# In[ ]:
 
 
 README_PATH                     = getenv('README_PATH')
@@ -630,7 +637,7 @@ with open('question_data/language_equivs.json') as f :
     LANGUAGE_EQUIVS = json.load(f)
 
 
-# In[360]:
+# In[ ]:
 
 
 # MARKDOWN_TO_SUBMISSIONS
@@ -726,7 +733,7 @@ def generate_markdown(questionNo: int,
     return output_path
 
 
-# In[361]:
+# In[ ]:
 
 
 def processMarkdownGeneration(questionData: dict,
@@ -752,7 +759,7 @@ def processMarkdownGeneration(questionData: dict,
 # # DataFrames
 # Conversion into DataFrames and declaration of respective column headers occurs here.
 
-# In[362]:
+# In[ ]:
 
 
 COLUMNS = [ 
@@ -776,7 +783,7 @@ TYPE_CLARIFICATION = {
                     }
 
 
-# In[363]:
+# In[ ]:
 
 
 def convertDataToMatrix(questionData: dict,
@@ -821,7 +828,7 @@ def convertDataToMatrix(questionData: dict,
     return dataframe_array
 
 
-# In[364]:
+# In[ ]:
 
 
 def convertQuestionDataToDataframe(questionData: dict,
@@ -849,7 +856,7 @@ def convertQuestionDataToDataframe(questionData: dict,
 # ## Sorted by Most Recent
 # Using creation dates of code files only; not modification dates.
 
-# In[365]:
+# In[ ]:
 
 
 # NOTE: Reversed due to default sorting being in ascending order
@@ -860,7 +867,7 @@ def byRecentQuestionDataDataframe(questionData: dict) -> DataFrame :
 # ## Sorted by Amount of Code
 # Questions with more files on the question and longer submissions will be prioritized.
 
-# In[366]:
+# In[ ]:
 
 
 def byCodeLengthDataDataframe(questionData: dict) -> DataFrame :
@@ -870,7 +877,7 @@ def byCodeLengthDataDataframe(questionData: dict) -> DataFrame :
 # # Generation of Markdowns for Each Related Topic
 # 
 
-# In[367]:
+# In[ ]:
 
 
 def questionTopicDataframes(questionData: dict,
@@ -892,7 +899,7 @@ def questionTopicDataframes(questionData: dict,
     return output
 
 
-# In[368]:
+# In[ ]:
 
 
 TOPIC_FOLDER = getenv('TOPIC_MARKDOWN_PATH_IN_MARKDOWNS_FOLDER')
@@ -946,7 +953,7 @@ def topicBasedMarkdowns(questionData: dict,
 
 # ## Dailies, Recents, etc.
 
-# In[369]:
+# In[ ]:
 
 
 DAILY_URL = ''
@@ -1014,7 +1021,7 @@ def miscMarkdownGenerations(questionData:   dict,
 # 
 # Uses the built-in DataFrame `.to_markdown()` for outputting.
 
-# In[370]:
+# In[ ]:
 
 
 def exportPrimaryReadme(dfQuestions:        DataFrame,
@@ -1065,7 +1072,7 @@ def exportPrimaryReadme(dfQuestions:        DataFrame,
         file.write(dfQuestions.to_markdown(index=False))
 
 
-# In[371]:
+# In[ ]:
 
 
 # recalculateAll: forces recalcualtion markdowns for each question irregardless if its
@@ -1164,7 +1171,7 @@ def main(*, recalculateAll: bool = False) -> None :
     return questionData, reprocessMarkdown
 
 
-# In[372]:
+# In[ ]:
 
 
 import argparse
