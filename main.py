@@ -14,11 +14,16 @@ from os import stat
 from os.path import isdir                       # for creation of topic markdown folder if 
 from os import mkdir                            # not present
 
+from os import getcwd                           # gets current working DIR for calculating git 
+                                                # root of submissions folder 
+
 from os import chdir                            # for changing the working directory to ensure
 from os.path import abspath, dirname            # relative paths used are from this script's
 import sys                                      # location rather than the calling location
                                                 # e.g. if you call `python someFolder/main.py`
                                                 #      then it will still work.
+
+import subprocess
 
 from os.path import getmtime, getctime          # retreiving file creation/modification times
 from datetime import datetime
@@ -50,6 +55,7 @@ from functools import cache                     # for redundancy protection
 # loading env variables
 load_dotenv(find_dotenv(), override=True)
 
+
 # NOTE: if the script is being run from a jupyter notebook, then it should
 # already be in the correct directory.
 IS_NOTEBOOK = True
@@ -63,6 +69,13 @@ try:
 except NameError:
     print('NameError')
     pass
+
+
+# README_ABS_DIR will get confirmed in if name==main prior to running
+README_ABS_DIR = getcwd().replace('\\', '/')
+NOTEBOOK_ABS_DIR = README_ABS_DIR
+print(f'{NOTEBOOK_ABS_DIR = }')
+MAIN_DIRECTORY = NOTEBOOK_ABS_DIR[NOTEBOOK_ABS_DIR.rfind('/')+1:]
 
 
 # In[ ]:
@@ -89,13 +102,114 @@ PRIMARY_CATEGORIES = set(['Daily', 'Weekly Premium', 'Contest', 'Favourite'])
 # In[ ]:
 
 
+_ALL_GIT_CM_TIMES = None
+def getAllCTimesViaGit(paths: List[str]) -> Dict[str, Tuple[datetime, datetime]] :
+    '''
+    WARNING: SLOW
+
+    To avoid having to constantly swap directories, this function parses all the ctimes and mtimes 
+    in one block of time. This gets activated with the `-g` flag. Default otherwise is to use the 
+    regular `getctime` and `getmtime` functions locally which is much much faster. This only exists 
+    to compensate for the inability for ctime and mtime checking with git actions.
+    '''
+
+    chdir('../')
+
+    cmd = r"git log --follow --format=%ct --reverse --".split()
+    output = {}
+
+    for i, path in enumerate(paths) :
+        path = join(LEETCODE_PATH_FROM_README, path)
+        process = subprocess.Popen(cmd + [path],
+                                   shell=True,
+                                   stdin=None,
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
+        result = process.stdout.readlines()
+        modifiedTimes = []
+        if len(result) >= 1:
+            for line in result:
+                modifiedTimes.append(line.decode("utf-8").replace('\n', ''))
+
+        if modifiedTimes[-1] == '':
+            modifiedTimes.pop()
+
+        creationDate = datetime.strptime(time.ctime(int(modifiedTimes[0])), '%a %b %d %H:%M:%S %Y')
+        modifiedDate = datetime.strptime(time.ctime(int(modifiedTimes[-1])), '%a %b %d %H:%M:%S %Y')
+
+        output[path] = (creationDate, modifiedDate)
+
+    # Usually I'd avoid using global for this but this is a personal project so it should be fine.
+    _ALL_GIT_CM_TIMES = output
+    print(output)
+    
+    chdir(MAIN_DIRECTORY)
+    return output
+
+
+# In[ ]:
+
+
 @cache
-def getCtimeMtimes(path: str) -> Tuple[datetime, datetime] :
+def getCtimesMtimesGitHistory(path: str) -> Tuple[datetime, datetime] :
+    path = path[path.find('/') + 1:]
+    print('asdf git')
+    chdir('../')
+    cmd = r"git log --follow --format=%ct --reverse --".split() + [path]
+    process = subprocess.Popen(cmd,
+                               shell=True,
+                               stdin=None,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE)
+    result=process.stdout.readlines()
+    modifiedTimes = []
+    if len(result) >= 1:
+        for line in result:
+            modifiedTimes.append(line.decode("utf-8").replace('\n', ''))
+
+    print(modifiedTimes)
+    
+    # # print(f'{getcwd() = }')
+    # modifiedTimes = subprocess.check_output(cmd)
+    # modifiedTimes = modifiedTimes.decode('utf-8')
+    # modifiedTimes = modifiedTimes.split('\n')
+    # # print(f'{modifiedTimes = }')
+
+    # Linebreak at last element can cause empty string
+    if modifiedTimes[-1] == '':
+        modifiedTimes.pop()
+
+    creationDate = datetime.strptime(time.ctime(int(modifiedTimes[0])), '%a %b %d %H:%M:%S %Y')
+    modifiedDate = datetime.strptime(time.ctime(int(modifiedTimes[-1])), '%a %b %d %H:%M:%S %Y')
+
+    print(f'{creationDate, modifiedDate = }')
+
+    chdir(MAIN_DIRECTORY)
+
+    return (creationDate, modifiedDate)
+
+
+# In[ ]:
+
+
+USE_GIT_DATES = False
+
+@cache
+def getCtimeMtimesMain(path: str) -> Tuple[datetime, datetime] :
     '''
     Returns the a tuple containing the datetime objs of 
     (create date and time, modification date and time)
+
+    @param useGitDates: bool = False
+        If true, it will track the creation/modification dates of the file 
+        according to the git history. This is mainly to counter the issue in 
+        GitHub actions where the file creation date is the time of the action.
     '''
     
+    if USE_GIT_DATES :
+        return getCtimesMtimesGitHistory(path)
+    
+    # print('regular date called')
     creation_date = time.ctime(getctime(path))
     modification_date = time.ctime(getmtime(path))
 
@@ -107,6 +221,20 @@ def getCtimeMtimes(path: str) -> Tuple[datetime, datetime] :
         return (modification_date, creation_date)
     
     return (creation_date, modification_date)
+
+
+# In[ ]:
+
+
+def getCtimeMtimes(path: str, *, preCalculated: Dict[str, Tuple[datetime, datetime]] = None) -> Tuple[datetime, datetime] :
+    readme_path = path if ('../' not in path) else path[path.find('../') + 1:]
+    if _ALL_GIT_CM_TIMES :
+        return _ALL_GIT_CM_TIMES[readme_path]
+    
+    if preCalculated :
+        return preCalculated[readme_path]
+
+    return getCtimeMtimesMain(path)
 
 
 # In[ ]:
@@ -1082,6 +1210,9 @@ def main(*, recalculateAll: bool = False, noRecord: bool = False) -> None :
     contestFolders          = getContestFolders()
     contestLeetcodeFiles    = getContestFiles(contestFolders)
 
+    if USE_GIT_DATES :
+        getAllCTimesViaGit(additionalInfoFiles + leetcodeFiles + [join(x[0], x[1]) for x in contestLeetcodeFiles])
+
     questionDetailsDict     = retrieveQuestionDetails()
     questionTopicsDict      = retrieveQuestionTopics()
 
@@ -1192,22 +1323,39 @@ if __name__ == '__main__' :
                             help="Don't use the previous modified dates and don't store them", 
                             required=False, 
                             action=argparse.BooleanOptionalAction)
+        parser.add_argument("-g", 
+                            help="Use Git repo's dates for determining if a file has been modified and created (WARNING SLOW)", 
+                            required=False, 
+                            action=argparse.BooleanOptionalAction)
         
         recalcaulateAll = parser.parse_args().r
         noRecord = parser.parse_args().norecord or parser.parse_args().n
-    
+
+        USE_GIT_DATES = parser.parse_args().g
+
+    README_ABS_DIR = README_ABS_DIR[:README_ABS_DIR.rindex('/')]
+    print(README_ABS_DIR, '\n')
+
     print('No record'.ljust(20), end='')
     if noRecord :
         print('on')
     else :
         print('off')
 
-    print('Recalculate all on'.ljust(20), end='')
+    print('Recalculate'.ljust(20), end='')
     if recalcaulateAll :
         print('on')
     else :
         print('off')
+
+    print('Use Git dates'.ljust(20), end='')
+    if USE_GIT_DATES :
+        print('on')
+    else :
+        print('off')
+
     print('\n\n')
+
 
     main(recalculateAll=recalcaulateAll, noRecord=noRecord)
 
