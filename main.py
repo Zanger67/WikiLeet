@@ -119,13 +119,31 @@ def getAllCTimesViaGit(paths: List[str]) -> Dict[str, Tuple[datetime, datetime]]
     cmd = r"git log --follow --format=%ct --reverse --".split()
     output = {}
 
+    process = subprocess.Popen(['git', 'log', '--follow', '--format=%ct', '--reverse', '--', 'my-submissions/m1482.md'],
+                                   shell=False,
+                                #    shell=True,
+                                   stdin=None,
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
+
+    result = process.stdout.readlines()
+    modifiedTimes = []
+    if len(result) >= 1:
+        for line in result:
+            modifiedTimes.append(line.decode("utf-8").replace('\n', ''))
+    print(f'{modifiedTimes = }')
+
     print(f'post ../: {getcwd() = }')
+    print(f'{listdir(getcwd()) = }')
 
     for i, path in enumerate(paths) :
+        # if not path.endswith('.md') :
+        #     continue
         path = join(LEETCODE_PATH_FROM_README, path)
         print(f'{cmd + [path] = }')
         process = subprocess.Popen(cmd + [path],
-                                   shell=True,
+                                   shell=False,
+                                #    shell=True,
                                    stdin=None,
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
@@ -146,12 +164,14 @@ def getAllCTimesViaGit(paths: List[str]) -> Dict[str, Tuple[datetime, datetime]]
             print(f'{modifiedTimes}')
             print(ve)
             exit()
+        print((creationDate, modifiedDate))
+        print()
 
         output[path] = (creationDate, modifiedDate)
 
     # Usually I'd avoid using global for this but this is a personal project so it should be fine.
     _ALL_GIT_CM_TIMES = output
-    print(output)
+    print(f'{output = }')
     
     chdir(MAIN_DIRECTORY)
     return output
@@ -238,12 +258,14 @@ def getCtimeMtimesMain(path: str) -> Tuple[datetime, datetime] :
 
 def getCtimeMtimes(path: str, *, preCalculated: Dict[str, Tuple[datetime, datetime]] = None) -> Tuple[datetime, datetime] :
     readme_path = path if ('../' not in path) else path[path.find('../') + 1:]
-    if _ALL_GIT_CM_TIMES :
+    print(f'{readme_path = }')
+    if _ALL_GIT_CM_TIMES and readme_path in _ALL_GIT_CM_TIMES :
         return _ALL_GIT_CM_TIMES[readme_path]
     
-    if preCalculated :
+    if preCalculated and readme_path in preCalculated :
         return preCalculated[readme_path]
 
+    print('forced manual generation')
     return getCtimeMtimesMain(path)
 
 
@@ -1314,6 +1336,20 @@ def main(*, recalculateAll: bool = False, noRecord: bool = False) -> None :
 
 
 if __name__ == '__main__' :
+    '''
+    ### Flags
+    `-r` : 
+        Recalculate all markdown files irregardless of whether there are modified or new code files for that question or not
+    `-n` :
+        Don't use the previous modified dates and don't store them (in effect, the same as `-r` but it doesn't save the 
+        new modification dates). Primarily for use with GitHub actions.
+    `-g` :
+        Uses the repository's git log history for each file to trace the creation and last modification dates of each file 
+        rather than use the default `getctime()` and `getmtime()` of each file. GitHub actions seem to default the ctime 
+        and mtimes to time.now due to not tracking the actual mtime ctime metadata.
+
+        WARNING: Only for use with GitHub actions as this ends up being very slow due to low subprocess speends.
+    '''
     recalcaulateAll = False
     noRecord = False
 
@@ -1346,25 +1382,10 @@ if __name__ == '__main__' :
     README_ABS_DIR = README_ABS_DIR[:README_ABS_DIR.rindex('/')]
     print(README_ABS_DIR, '\n')
 
-    print('No record'.ljust(20), end='')
-    if noRecord :
-        print('on')
-    else :
-        print('off')
-
-    print('Recalculate'.ljust(20), end='')
-    if recalcaulateAll :
-        print('on')
-    else :
-        print('off')
-
-    print('Use Git dates'.ljust(20), end='')
-    if USE_GIT_DATES :
-        print('on')
-    else :
-        print('off')
-
-    print('\n\n')
+    print('No record'.ljust(20), 'on' if noRecord else 'off')
+    print('Recalculate'.ljust(20), 'on' if recalcaulateAll else 'off')
+    print('Use Git dates'.ljust(20), 'on' if USE_GIT_DATES else 'off')
+    print()
 
 
     main(recalculateAll=recalcaulateAll, noRecord=noRecord)
