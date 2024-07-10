@@ -379,7 +379,7 @@ def getRecentFileTimes() -> dict :
 
 
 # Parse one leetcode answer file in the submissions folder
-def parseCase(leetcodeFile:         str, # file name
+def parseCase(leetcodeFile:         str,  # file name
               questionData:         dict, # dictionary of question data
               fileLatestTimes:      dict,
               reprocessMarkdown:    set,
@@ -1073,7 +1073,7 @@ def exportPrimaryReadme(dfQuestions:        DataFrame,
 
 # recalculateAll: forces recalcualtion markdowns for each question irregardless if its
 #                 source files have been modified or not
-def main(*, recalculateAll: bool = False) -> None :
+def main(*, recalculateAll: bool = False, noRecord: bool = False) -> None :
     leetcodeFiles           = getCodeFiles()
     additionalInfoFiles     = getContextFiles()             # For later use when generating the individual readme files
 
@@ -1099,7 +1099,7 @@ def main(*, recalculateAll: bool = False) -> None :
 
 
     # Parsing primary files
-    fileLatestTimes = getRecentFileTimes() if not recalculateAll else {}
+    fileLatestTimes = getRecentFileTimes() if (not recalculateAll and not noRecord) else {}
 
     reprocessMarkdown = set()
     questionData = {}
@@ -1159,8 +1159,8 @@ def main(*, recalculateAll: bool = False) -> None :
 
     print(f'Number of individual questions updated/added: {len(reprocessMarkdown)}')
 
-
-    writeRecentFileTimes(fileLatestTimes)           # restore for next use
+    if not noRecord :
+        writeRecentFileTimes(fileLatestTimes)           # restore for next use
 
     # print(len(questionData))
 
@@ -1172,6 +1172,7 @@ def main(*, recalculateAll: bool = False) -> None :
 
 if __name__ == '__main__' :
     recalcaulateAll = False
+    noRecord = False
 
     if not IS_NOTEBOOK :
         parser = argparse.ArgumentParser()
@@ -1181,7 +1182,30 @@ if __name__ == '__main__' :
                             required=False, 
                             action=argparse.BooleanOptionalAction)
         
+        parser.add_argument("-n", 
+                            help="Don't use the previous modified dates and don't store them", 
+                            required=False, 
+                            action=argparse.BooleanOptionalAction)
+        parser.add_argument("-norecord", 
+                            help="Don't use the previous modified dates and don't store them", 
+                            required=False, 
+                            action=argparse.BooleanOptionalAction)
+        
         recalcaulateAll = parser.parse_args().r
+        noRecord = parser.parse_args().norecord or parser.parse_args().n
+    
+    print('No record'.ljust(20), end='')
+    if noRecord :
+        print('on')
+    else :
+        print('off')
 
-    main(recalculateAll=recalcaulateAll)
+    print('Recalculate all on'.ljust(20), end='')
+    if recalcaulateAll :
+        print('on')
+    else :
+        print('off')
+    print('\n\n')
+
+    main(recalculateAll=recalcaulateAll, noRecord=noRecord)
 
