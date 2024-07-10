@@ -112,11 +112,14 @@ def getAllCTimesViaGit(paths: List[str]) -> Dict[str, Tuple[datetime, datetime]]
     regular `getctime` and `getmtime` functions locally which is much much faster. This only exists 
     to compensate for the inability for ctime and mtime checking with git actions.
     '''
+    print(f'pre ../: {getcwd() = }')
 
     chdir('../')
 
     cmd = r"git log --follow --format=%ct --reverse --".split()
     output = {}
+
+    print(f'post ../: {getcwd() = }')
 
     for i, path in enumerate(paths) :
         path = join(LEETCODE_PATH_FROM_README, path)
