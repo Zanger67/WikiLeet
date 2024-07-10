@@ -1,2 +1,3 @@
 pandas==2.2.1
 icecream==2.1.3
+python-dotenv==1.0.1
