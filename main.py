@@ -120,6 +120,7 @@ def getAllCTimesViaGit(paths: List[str]) -> Dict[str, Tuple[datetime, datetime]]
 
     for i, path in enumerate(paths) :
         path = join(LEETCODE_PATH_FROM_README, path)
+        print(f'{cmd + [path] = }')
         process = subprocess.Popen(cmd + [path],
                                    shell=True,
                                    stdin=None,
