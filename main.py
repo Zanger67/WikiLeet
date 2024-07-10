@@ -257,7 +257,7 @@ def getCtimeMtimesMain(path: str) -> Tuple[datetime, datetime] :
 
 
 def getCtimeMtimes(path: str, *, preCalculated: Dict[str, Tuple[datetime, datetime]] = None) -> Tuple[datetime, datetime] :
-    readme_path = path if ('../' not in path) else path[path.find('../') + 1:]
+    readme_path = path if ('../' not in path) else path[path.find('../') + len('../'):]
     print(f'{readme_path = }')
     if _ALL_GIT_CM_TIMES and readme_path in _ALL_GIT_CM_TIMES :
         return _ALL_GIT_CM_TIMES[readme_path]
