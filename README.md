@@ -10,7 +10,6 @@ If you'd like to use this for yourself, you can either import this repo as a sub
 
 <!-- Insert gif of it running and creating all the markdowns -->
 
-
 ## Additional Features
 
 -   Automatically generates a README markdown with your solved count and links to each question.
@@ -19,13 +18,16 @@ If you'd like to use this for yourself, you can either import this repo as a sub
 -   Has the `Neetcode150` and `Blind75` lists already added.
 -   Provides lists sorted and grouped by Completion Date, Daily Questions, and the official Topics.
 
+-   If you are using the LeetCode [vscode-leetcode](https://github.com/LeetCode-OpenSource/vscode-leetcode/tree/master) extension, you can set the `my-submissions` as the file store location and the script will parse it all the same.
+
 ## How to Use
 
-_Under construction_
+See [here](https://github.com/Zanger67/leetcode-template/tree/main) for the template repository and instructions on how to make use of it.
 
-### Data Files
-- [`leetcode question list query.json`](<question_data/leetcode question list query.json>) - Direct query to Leetcode's GraphQL API for all question info including topics, acceptance rates, full names, etc.
-- `leetcode_question_details.pkl` & `leetcode_question_topics.pkl` - Binary file exports using the `pickle` `Python` package to export and save dictionaries for later use. -->
+## Data Files
+
+-   [`leetcode question list query.json`](<question_data/leetcode question list query.json>) - Direct query to Leetcode's GraphQL API for all question info including topics, acceptance rates, full names, etc.
+-   `leetcode_question_details.pkl` & `leetcode_question_topics.pkl` - Binary file exports using the `pickle` `Python` package to export and save dictionaries for later use. -->
 
 ## About the files and directories
 
@@ -40,26 +42,31 @@ _Under construction_
 | [`parse_official_question_data.ipynb`](parse_official_question_data.ipynb) | a helper script that I use to reprocess the `.json` data (you can ignore).                                                                                                                                                                                   |
 | [`LeetCode Record - Publix.xlsx`](<LeetCode Record - Publix.xlsx>)         | The spreadsheet I use to track my progress with cumulative graphs and whatnot (extra)                                                                                                                                                                        |
 
-## Images
+## EXAMPLES
 
-_Example from my own [repo](https://github.com/Zanger67/leetcode)_
-![Stats and Details](misc/image-1.png?raw=true)
+_[Click here to see my own repo as an example](https://github.com/Zanger67/leetcode)_
 
 </br>
 
-![Leetcode Repository Example](<misc/eg_front_page.png?raw=true>)
+### My Repo's Homepage (the Primary README)
 
------
+![Leetcode Repository Example](misc/eg_front_page.png?raw=true)
 
-![Individual Question's Markdown Example](<misc/eg_individual_question_markdown.png?raw=true>)
+---
 
------
+### A single question markdown which was generated from 2 solution files and a context file to add details
 
-![Markdown Code Example](<misc/eg_markdown_code.png?raw=true>)
+![Individual Question's Markdown Example](misc/eg_individual_question_markdown.png?raw=true)
 
------
+---
 
-![Spreadsheet Example](<misc/spreadsheet_stats.png?raw=true>)
+### The pre-rendered markdown
+
+![Markdown Code Example](misc/eg_markdown_code.png?raw=true)
+
+---
+
+![Spreadsheet Example](misc/spreadsheet_stats.png?raw=true)
 
 <!-- ---
 
