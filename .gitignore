@@ -2,7 +2,10 @@
 ~$*
 
 testing/
-*.env
+
+# Usually, env would be hidden but since this project doesn't
+# require any sensitive information, I commented it out
+# *.env
 
 __pycache__/
 
