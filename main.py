@@ -506,9 +506,9 @@ def parseContextFiles(txtFiles: str,
         print(f'Context file found: {fileName}')
 
         if '\\' in fileName :
-            number = int(re.sub("[^0-9]", "", fileName[fileName.find('\\') + 1:].split(' ')[0]))
+            number = int(re.search("\d{1,4}", fileName[fileName.find('\\') + 1:]).group())
         else :
-            number = int(re.sub("[^0-9]", "", fileName.split(' ')[0]))
+            number = int(re.search("\d{1,4}", fileName).group())
         if number not in questionData :
             print(f'Error. No question solution found for context file ({fileName = })')
             continue
