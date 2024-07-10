@@ -24,10 +24,6 @@ If you'd like to use this for yourself, you can either import this repo as a sub
 
 See [here](https://github.com/Zanger67/leetcode-template/tree/main) for the template repository and instructions on how to make use of it.
 
-## Data Files
-
--   [`leetcode question list query.json`](<question_data/leetcode question list query.json>) - Direct query to Leetcode's GraphQL API for all question info including topics, acceptance rates, full names, etc.
--   `leetcode_question_details.pkl` & `leetcode_question_topics.pkl` - Binary file exports using the `pickle` `Python` package to export and save dictionaries for later use. -->
 
 ## About the files and directories
 
