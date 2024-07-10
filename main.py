@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[249]:
 
 
 import pandas as kungfupanda                    # pandas
@@ -11,9 +11,14 @@ from os import listdir                          # for file retrieval and path ca
 from os.path import isfile, join
 from os import stat
 
+from os.path import isdir                       # for creation of topic markdown folder if 
+from os import mkdir                            # not present
+
 from os import chdir                            # for changing the working directory to ensure
-from os.path import abspath, dirname            # relative paths are from this script's location
-chdir(dirname(abspath(__file__)))               # and not calling location
+from os.path import abspath, dirname            # relative paths used are from this script's
+import sys                                      # location rather than the calling location
+                                                # e.g. if you call `python someFolder/main.py`
+                                                #      then it will still work.
 
 from typing import Set, Dict, List, Tuple       # misc. QOL imports
 from collections import defaultdict
@@ -36,7 +41,7 @@ from typing import List                         # misc.
 from functools import cache                     # for redundancy
 
 
-# In[ ]:
+# In[250]:
 
 
 README_PATH                 = getenv('README_PATH')
@@ -50,17 +55,23 @@ LEETCODE_PATH_REFERENCE     = join(README_PATH, LEETCODE_PATH_FROM_README)
 # 
 # UpdateLanguage $\rightarrow$ if a question already has a solution, this is called instead to insert the new file link to the existing row details.
 
-# In[ ]:
+# In[251]:
 
 
 # Categories besides those in lists
 PRIMARY_CATEGORIES = set(['Daily', 'Weekly Premium', 'Contest', 'Favourite'])
 
 
-# In[ ]:
+# In[252]:
 
 
-def getCtimeMtimes(path: str) -> tuple :    # output: creation, modification
+@cache
+def getCtimeMtimes(path: str) -> Tuple[datetime, datetime] :
+    '''
+    Returns the a tuple containing the datetime objs of 
+    (create date and time, modification date and time)
+    '''
+    
     creation_date = time.ctime(getctime(path))
     modification_date = time.ctime(getmtime(path))
 
@@ -70,10 +81,11 @@ def getCtimeMtimes(path: str) -> tuple :    # output: creation, modification
     # I've sometimes encountered weird meta data issues so just as a precaution
     if creation_date > modification_date :
         return (modification_date, creation_date)
+    
     return (creation_date, modification_date)
 
 
-# In[ ]:
+# In[253]:
 
 
 def addCase(level:              str,
@@ -84,7 +96,43 @@ def addCase(level:              str,
             notebook_path:      str,
             readme_path:        str,
             fileLatestTimes:    dict,
-            contestTitle:       str=None) -> dict :
+            contestTitle:       str=None,
+            contestQNo:         str=None) -> dict :
+    '''
+    Takes the data found on a question not encountered before and 
+    converts it into a callable dictionary with all the relevant 
+    information
+
+    ### Parameters (Required) :
+    level : str
+        Difficulty indicator of the question (e, m, h)
+    number : int
+        The official LeetCode question number
+    title : str
+        The title of the question (colloquial name)
+    categories : Set[str]
+        The categories the question falls under (e.g. Contest, Daily, etc.)
+    language : str
+        The programming language used to solve the question
+    notebook_path : str
+        The path from the main.py/ipynb script to the code file in question
+    readme_path : str
+        The path from the README.md file to be exported to the code file in question
+    fileLatestTimes : dict
+        A dictionary containing the latest modification times of all files
+        in the repository
+    
+    ### Parameters (Optional) :
+    contestTitle : str
+        The title of the contest the question was a part of if applicable
+    contestQNo : str
+        The question number in the contest if applicable (e.g. q1, q2, etc.)
+
+    ### Returns :
+    output : dict
+        A dictionary containing all the relevant information for the question
+        to be used in the final output
+    '''
 
     creation_date, modification_date = getCtimeMtimes(notebook_path)
     fileLatestTimes[readme_path] = modification_date
@@ -114,6 +162,7 @@ def addCase(level:              str,
                 'title':                title, 
                 'categories':           categories,
                 'contestTitle':         contestTitle,
+                'contestQNo':           contestQNo,
                 'date_done':            creation_date,          # First time completed
                 'date_modified':        modification_date,      # Most recent date
                 'solution':             '',
@@ -125,7 +174,7 @@ def addCase(level:              str,
     return output
 
 
-# In[ ]:
+# In[254]:
 
 
 def updateQuestion(orig:               dict, 
@@ -135,7 +184,23 @@ def updateQuestion(orig:               dict,
                    notebook_path:      str,
                    readme_path:        str,
                    fileLatestTimes:    dict,
-                   contestTitle:       str=None) -> dict :  
+                   contestTitle:       str=None,
+                   contestQNo:         str=None) -> dict :
+    '''
+    Takes question data of a question that's already been encountered and 
+    updates the relevant dictionary with the new information found. Similar 
+    to addCase but for questions that have already been encountered.
+
+    ### Parameters :
+    orig : dict
+        The original dictionary containing all the relevant information from previous encounters
+    
+    All other parameters are the same as addCase and are optional in order to update them.
+        
+    ### Returns :
+    orig : dict
+        The updated dictionary containing all the relevant information from previous encounters
+    '''
     
     # Another question file found
     if language and language not in orig['languages'] :
@@ -143,6 +208,9 @@ def updateQuestion(orig:               dict,
 
     if contestTitle :
         orig['contestTitle'] = contestTitle
+        
+    if contestQNo :
+        orig['contestQNo'] = contestQNo
           
     if categories :
         orig['categories'] |= categories
@@ -173,11 +241,20 @@ def updateQuestion(orig:               dict,
 # # Pickle Processes
 # 
 
-# In[ ]:
+# In[255]:
 
 
 @cache
 def retrieveQuestionDetails() -> dict :
+    '''
+    Retrieves the question details (i.e. title, acRates, difficulties, etc.) from
+    the relevant `.pkl` file containing parsed official LeetCode json data.
+
+    ### Returns :
+    questionDetailsDict : dict[int, details]
+        A dictionary containing the question details matched to the question's assigned number
+    '''
+    
     question_data_folder    = getenv('QUESTION_DATA_PATH')
     question_details_file   = getenv('LEETCODE_QUESTION_DETAILS')
 
@@ -203,11 +280,20 @@ def retrieveQuestionDetails() -> dict :
     return questionDetailsDict
 
 
-# In[ ]:
+# In[256]:
 
 
 @cache
 def retrieveQuestionTopics() -> dict :
+    '''
+    Retrieves the topics associated with each question (e.g. Array, LinkedList, 
+    BST, etc.) from the relevant `.pkl` file containing parsed official LeetCode json data.
+
+    ### Returns :
+    questionDetailsDict : dict
+        A dictionary containing the question details matched to the question's assigned number
+    '''
+    
     question_data_folder    = getenv('QUESTION_DATA_PATH')
     question_topics_file   = getenv('LEETCODE_QUESTION_TOPICS')
 
@@ -233,10 +319,12 @@ def retrieveQuestionTopics() -> dict :
     return questionTopicsDict
 
 
-# In[ ]:
+# In[257]:
 
 
 def writeRecentFileTimes(fileLatestTimes: dict) -> bool :
+    '''Pickles the newly found most recent modification times of each question for reference in future runs'''
+    
     history_path = join(getenv('USER_DATA_PATH'), getenv('FILE_MODIFICATION_NAME'))
 
     with open(history_path, 'wb') as fp:
@@ -245,10 +333,12 @@ def writeRecentFileTimes(fileLatestTimes: dict) -> bool :
     return True
 
 
-# In[ ]:
+# In[258]:
 
 
 def getRecentFileTimes() -> dict :
+    '''Retrieves the pickled data from previous cases of `writeRecentFileTimes()`'''
+    
     history_path = join(getenv('USER_DATA_PATH'), getenv('FILE_MODIFICATION_NAME'))
 
     if isfile(history_path) :
@@ -261,7 +351,7 @@ def getRecentFileTimes() -> dict :
 # # Parsing Files
 # Question file parsing occurs here. It organizes it into 3 different lists, separated by difficulty and sorted by question number afterwards.
 
-# In[ ]:
+# In[259]:
 
 
 # Parse one leetcode answer file in the submissions folder
@@ -273,7 +363,8 @@ def parseCase(leetcodeFile:         str, # file name
               questionDetailsDict:  dict = retrieveQuestionDetails(),
               subFolderPath:        str = '',
               altTitle:             str = '',
-              contest:              str = None) -> bool:
+              contest:              str = None,
+              contestQNo:           str = None) -> bool:
 
     path = join(LEETCODE_PATH_FROM_README, subFolderPath, leetcodeFile).replace("\\", "/")
     
@@ -300,22 +391,21 @@ def parseCase(leetcodeFile:         str, # file name
     categories  = set()
     language    = leetcodeFile[leetcodeFile.rfind('.') + 1:]
 
-    # if len(altTitle) > 0 :
-    #     title = altTitle
+    if len(altTitle) > 0 :
+        title = altTitle + ' - ' + title
 
     # Question is from a contest folder
     if contest :
         temp = re.findall('q\d{1}', leetcodeFile)                       # Checking if file name has a question number (e.g. q1 of the contest)
         if not len(temp) == 0 :
-            title += ' - ' + temp[0]
-        # print(title)
+            contestQNo = temp[0]
 
-    if contest :
         categories.add('Contest')
-    else :
-        for cat in PRIMARY_CATEGORIES :
-            if cat.lower() in leetcodeFile.lower() :
-                categories.add(cat)
+
+
+    for cat in PRIMARY_CATEGORIES :
+        if cat.lower() in leetcodeFile.lower() :
+            categories.add(cat)
 
     if number in questionData :                                     # If solution already found for this question
         questionData[number] = updateQuestion(questionData[number], 
@@ -324,6 +414,7 @@ def parseCase(leetcodeFile:         str, # file name
                                               notebook_path=join(README_PATH, path), 
                                               readme_path=path,
                                               contestTitle=contest,
+                                              contestQNo=contestQNo,
                                               fileLatestTimes=fileLatestTimes)
         return True
     
@@ -335,11 +426,12 @@ def parseCase(leetcodeFile:         str, # file name
                                    notebook_path=join(README_PATH, path), 
                                    readme_path=path,
                                    contestTitle=contest,
+                                   contestQNo=contestQNo,
                                    fileLatestTimes=fileLatestTimes)
     return True
 
 
-# In[ ]:
+# In[260]:
 
 
 @cache
@@ -384,7 +476,7 @@ def getContestFiles(contestFolders: List[str]) -> List[Tuple[str, str]] :
 # # Sort TXT Context
 # If .txt notes are placed, this adds them to their respective entry.
 
-# In[ ]:
+# In[261]:
 
 
 def parseContextFiles(txtFiles: str, 
@@ -414,7 +506,7 @@ def parseContextFiles(txtFiles: str,
 # # List-Based Categories
 # Updating `Category` columns based on the lists in the `Lists` directory.
 
-# In[ ]:
+# In[262]:
 
 
 LISTSDIR = getenv('LISTS_LOCATION')
@@ -430,7 +522,7 @@ def getLists() -> List[str] :
     return listFileNames
 
 
-# In[ ]:
+# In[263]:
 
 
 ''' Format for lists file is as follows:
@@ -460,7 +552,7 @@ def getList(fileName, filePath) -> set[int] :
     
 
 
-# In[ ]:
+# In[264]:
 
 
 def processListData(questionData: dict,
@@ -482,7 +574,7 @@ def processListData(questionData: dict,
 # # Question Topic Grouping
 # Parses the questions in `questionData` and adds their numbers to appropriate lists so that they can be parsed into their own lists as well as counted.
 
-# In[ ]:
+# In[265]:
 
 
 def getCompletedQuestionsTopicLists(questionData: dict,
@@ -503,7 +595,7 @@ def getCompletedQuestionsTopicLists(questionData: dict,
 # # Individual Markdown Generation
 # 
 
-# In[ ]:
+# In[266]:
 
 
 README_PATH                     = getenv('README_PATH')
@@ -517,42 +609,12 @@ QUESTION_DATA_FOLDER_PATH    = getenv('QUESTION_DATA_PATH')
 QUESTION_TOPICS_FILE         = getenv('LEETCODE_QUESTION_TOPICS')
 QUESTION_DETAILS_FILE        = getenv('LEETCODE_QUESTION_DETAILS')
 
-LANGUAGE_EQUIVS = {
-    'bash': 'Bash',
-    'c': 'C',
-    'cpp': 'C++',
-    'cs': 'C#',
-    'csharp': 'C#',
-    'go': 'Go',
-    'java': 'Java',
-    'javascript': 'JavaScript',
-    'js': 'JavaScript',
-    'kotlin': 'Kotlin',
-    'kt': 'Kotlin',
-    'lua': 'Lua',
-    'm': 'Objective-C',
-    'mysql': 'SQL',
-    'objc': 'Objective-C',
-    'perl': 'Perl',
-    'php': 'PHP',
-    'py': 'Python',
-    'python': 'Python',
-    'r': 'R',
-    'racket': 'Racket',
-    'rb': 'Ruby',
-    'rs': 'Rust',
-    'ruby': 'Ruby',
-    'rust': 'Rust',
-    'scala': 'Scala',
-    'sh': 'Bash',
-    'sql': 'SQL',
-    'swift': 'Swift',
-    'ts': 'TypeScript',
-    'typescript': 'TypeScript'
-}
+import json
+with open('question_data/language_equivs.json') as f :
+    LANGUAGE_EQUIVS = json.load(f)
 
 
-# In[ ]:
+# In[267]:
 
 
 # MARKDOWN_TO_SUBMISSIONS
@@ -590,29 +652,32 @@ def generate_markdown(questionNo: int,
         date_modified = questionData['date_modified']
         
         f.write(f'*All prompts are owned by LeetCode. To view the prompt, click the title link above.*\n\n')
+        
+        if questionData['contestTitle'] and questionData['contestQNo']:
+            f.write(f'*Completed during {questionData["contestTitle"]} ({questionData["contestQNo"]})*\n\n')
+
         f.write('*[Back to top](<../README.md>)*\n\n')
 
         f.write('------\n\n')
         f.write(f'> *First completed : {date_done:%B %d, %Y}*\n>\n')
-        f.write(f'> *Last updated : {date_modified:%B %d, %Y}*\n\n\n')
-        f.write('------\n\n')
+        f.write(f'> *Last updated : {date_modified:%B %d, %Y}*\n')
+
+        f.write('\n------\n\n')
 
         BY_TOPIC_FOLDER_PATH = getenv('TOPIC_MARKDOWN_PATH_IN_MARKDOWNS_FOLDER')
         tpcs = 'N/A' if questionNo not in questionTopicsDict or len(questionTopicsDict[questionNo]) == 0 \
                      else ', '.join([f'[{x}](<{join(BY_TOPIC_FOLDER_PATH, x)}.md>)' for x in questionTopicsDict[questionNo]])
         
-        f.write(f'> **Related Topics** : **' + tpcs + '**\n>\n')
+        f.write(f'> **Related Topics** : **{tpcs}**\n>\n')
 
         acrate = 'Unknown' if questionNo not in questionDetailsDict else f'{questionDetailsDict[questionNo][4]} %'
-        f.write(f'> **Acceptance Rate** : **' + f'{acrate}' + '**\n\n\n')
+        f.write(f'> **Acceptance Rate** : **{acrate}**\n\n')
         f.write('------\n\n')
 
         if 'contextFile' in questionData:
             with open(join(README_PATH, questionData['contextFile']), 'r') as contextFile:
                 f.write('> ' + contextFile.read().replace('\n', '\n> '))
             f.write(f'\n\n------\n\n')
-
-        # print(questionData['solutions'])
         
 
         f.write(f'## Solutions\n\n')
@@ -645,7 +710,7 @@ def generate_markdown(questionNo: int,
     return output_path
 
 
-# In[ ]:
+# In[268]:
 
 
 def processMarkdownGeneration(questionData: dict,
@@ -671,7 +736,7 @@ def processMarkdownGeneration(questionData: dict,
 # # DataFrames
 # Conversion into DataFrames and declaration of respective column headers occurs here.
 
-# In[ ]:
+# In[269]:
 
 
 COLUMNS = [ 
@@ -695,7 +760,7 @@ TYPE_CLARIFICATION = {
                     }
 
 
-# In[ ]:
+# In[270]:
 
 
 def convertDataToMatrix(questionData: dict,
@@ -719,8 +784,13 @@ def convertDataToMatrix(questionData: dict,
         
         solution_path = '../' * abs(relativeFolderAdjustment) + solution_path
 
+        title_to_use = question['title']
+        
+        if question['contestTitle'] and question['contestQNo'] :
+            title_to_use = f'{question["contestTitle"]} - {question["contestQNo"]} - {title_to_use}'
+
         currentRow = [question['number'],
-                      question['title'], 
+                      title_to_use, 
                       question['level'], 
                       ', '.join(sorted(list(question['categories']))), 
                       f'[solution](<{solution_path}>)', 
@@ -735,7 +805,7 @@ def convertDataToMatrix(questionData: dict,
     return dataframe_array
 
 
-# In[ ]:
+# In[271]:
 
 
 def convertQuestionDataToDataframe(questionData: dict,
@@ -763,7 +833,7 @@ def convertQuestionDataToDataframe(questionData: dict,
 # ## Sorted by Most Recent
 # Using creation dates of code files only; not modification dates.
 
-# In[ ]:
+# In[272]:
 
 
 # NOTE: Reversed due to default sorting being in ascending order
@@ -774,7 +844,7 @@ def byRecentQuestionDataDataframe(questionData: dict) -> DataFrame :
 # ## Sorted by Amount of Code
 # Questions with more files on the question and longer submissions will be prioritized.
 
-# In[ ]:
+# In[273]:
 
 
 def byCodeLengthDataDataframe(questionData: dict) -> DataFrame :
@@ -784,7 +854,7 @@ def byCodeLengthDataDataframe(questionData: dict) -> DataFrame :
 # # Generation of Markdowns for Each Related Topic
 # 
 
-# In[ ]:
+# In[274]:
 
 
 def questionTopicDataframes(questionData: dict,
@@ -806,7 +876,7 @@ def questionTopicDataframes(questionData: dict,
     return output
 
 
-# In[ ]:
+# In[275]:
 
 
 TOPIC_FOLDER = getenv('TOPIC_MARKDOWN_PATH_IN_MARKDOWNS_FOLDER')
@@ -828,6 +898,9 @@ def topicBasedMarkdowns(questionData: dict,
     # For the overal hosting markdown
     OVERALL_FILE_NOTEBOOK_PATH = join(README_PATH, MARKDOWN_PATH, 'Topics.md')
     OVERALL_FILE_README_PATH = join(MARKDOWN_PATH, 'Topics.md')
+
+    if not isdir(NOTEBOOK_PATH) :
+        mkdir(NOTEBOOK_PATH)
 
     output = [OVERALL_FILE_README_PATH]
     with open(OVERALL_FILE_NOTEBOOK_PATH, 'w', encoding='utf-8') as topic_file :
@@ -857,7 +930,7 @@ def topicBasedMarkdowns(questionData: dict,
 
 # ## Dailies, Recents, etc.
 
-# In[ ]:
+# In[276]:
 
 
 DAILY_URL = ''
@@ -925,7 +998,7 @@ def miscMarkdownGenerations(questionData:   dict,
 # 
 # Uses the built-in DataFrame `.to_markdown()` for outputting.
 
-# In[ ]:
+# In[277]:
 
 
 def exportPrimaryReadme(dfQuestions:        DataFrame,
@@ -976,7 +1049,7 @@ def exportPrimaryReadme(dfQuestions:        DataFrame,
         file.write(dfQuestions.to_markdown(index=False))
 
 
-# In[ ]:
+# In[278]:
 
 
 # recalculateAll: forces recalcualtion markdowns for each question irregardless if its
@@ -1028,10 +1101,9 @@ def main(*, recalculateAll: bool = False) -> None :
                   questionData=questionData,
                   fileLatestTimes=fileLatestTimes,
                   reprocessMarkdown=reprocessMarkdown, 
-                #   altTitle=contestFolder, 
                   subFolderPath=contestFolder, 
                   questionDetailsDict=questionDetailsDict,
-                  contest=True)
+                  contest=contestFolder)
         
 
     parseContextFiles(txtFiles=additionalInfoFiles, 
@@ -1076,18 +1148,33 @@ def main(*, recalculateAll: bool = False) -> None :
     return questionData, reprocessMarkdown
 
 
-# In[ ]:
+# In[279]:
 
 
 import argparse
 
 if __name__ == '__main__' :
-    parser = argparse.ArgumentParser()
+    recalcaulateAll = False
+    print('hiih')
+    try:
+        print('sadfasdfsds')
+        if 'ipykernel' not in sys.modules:
+            chdir(dirname(abspath(__file__)))
+            parser = argparse.ArgumentParser()
+            print('setting working dir')
     
-    parser.add_argument("-r", 
-                        help="Recompile all markdown files", 
-                        required=False, 
-                        action=argparse.BooleanOptionalAction)
+            parser.add_argument("-r", 
+                                help="Recompile all markdown files", 
+                                required=False, 
+                                action=argparse.BooleanOptionalAction)
+            print(f'{parser = }')
+            recalcaulateAll = parser.parse_args().r
+        else :
+            print('not running')
+    except NameError:
+        print('exce')
+        pass
 
-    main(recalculateAll=parser.parse_args().r)
+    print('hiih')
+    # main(recalculateAll=recalcaulateAll)
 
