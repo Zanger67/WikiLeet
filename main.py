@@ -143,7 +143,7 @@ def getAllCTimesViaGit(paths: List[str]) -> Dict[str, Tuple[datetime, datetime]]
         #     continue
         path = join(LEETCODE_PATH_FROM_README, path)
         print(f'{cmd + [path] = }')
-        process = subprocess.Popen(cmd + [f'"{path}"'],
+        process = subprocess.Popen(cmd + [f'{path}'],
                                    shell=False,
                                 #    shell=True,
                                    stdin=None,
@@ -193,7 +193,7 @@ def getCtimesMtimesGitHistory(path: str) -> Tuple[datetime, datetime] :
     path = path[path.find('/') + 1:]
     print('asdf git')
     chdir('../')
-    cmd = r"git log --follow --format=%ct --reverse --".split() + [f'"{path}"']
+    cmd = r"git log --follow --format=%ct --reverse --".split() + [f'{path}']
     process = subprocess.Popen(cmd,
                                shell=False,
                                stdin=None,
