@@ -99,87 +99,69 @@ LEETCODE_PATH_REFERENCE     = join(README_PATH, LEETCODE_PATH_FROM_README)
 PRIMARY_CATEGORIES = set(['Daily', 'Weekly Premium', 'Contest', 'Favourite'])
 
 
-# In[1]:
+# In[ ]:
+
+
+def individualCTimeViaGit(cmd: List[str]) -> Tuple[datetime, datetime] :
+    process = subprocess.Popen(cmd,
+                               shell=False,
+                               stdin=None,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE)
+    result = process.stdout.readlines()
+    modifiedTimes = []
+
+    if len(result) >= 1:
+        for line in result:
+            modifiedTimes.append(line.decode("utf-8").replace('\n', ''))
+    
+    # In case of a redundant '\n' at the end of an output
+    if modifiedTimes[-1] == '':
+        modifiedTimes.pop()
+    
+    try :
+        creationDate = datetime.strptime(time.ctime(int(modifiedTimes[0])), '%a %b %d %H:%M:%S %Y')
+        modifiedDate = datetime.strptime(time.ctime(int(modifiedTimes[-1])), '%a %b %d %H:%M:%S %Y')
+    except ValueError as ve:
+        print(f'Error in parsing {path}')
+        print(f'{modifiedTimes}')
+        print(ve)
+        exit()
+    
+    return (creationDate, modifiedDate)
+
+
+# In[ ]:
 
 
 _ALL_GIT_CM_TIMES = {}
 def getAllCTimesViaGit(paths: List[str]) -> Dict[str, Tuple[datetime, datetime]] :
     '''
-    WARNING: SLOW
+    WARNING: DO NOT USE LOCALLY. SLOW IF RAN LOCALLY.
+    
+    GITHUB ACTIONS ARE ABLE TO PERFORM THIS QUICKLY (~10s for the script for ~700 files) 
+    BUT A LOCAL RUN OF `-g` CAN TAKE UPWARDS OF 10 MINUTES FOR THE SAMEN NUMBER OF FILES.
 
     To avoid having to constantly swap directories, this function parses all the ctimes and mtimes 
     in one block of time. This gets activated with the `-g` flag. Default otherwise is to use the 
     regular `getctime` and `getmtime` functions locally which is much much faster. This only exists 
     to compensate for the inability for ctime and mtime checking with git actions.
     '''
-    print(f'pre ../: {getcwd() = }')
-
+    print(f'Beginning parsing of git logs for file creation and modification dates...')
+    print(f'Script path: {getcwd() = }')
     chdir('../')
+    print(f'README path: {getcwd() = }')
 
     cmd = r"git log --follow --format=%ct --reverse --".split()
     output = {}
 
-    # process = subprocess.Popen(['git', 'log', '--follow', r'--format=%ct', '--reverse', '--', 'my-submissions/m1482.md'],
-    #                                shell=False,
-    #                             #    shell=True,
-    #                                stdin=None,
-    #                                stdout=subprocess.PIPE,
-    #                                stderr=subprocess.PIPE)
-
-    # result = process.stdout.readlines()
-    # modifiedTimes = []
-    # if len(result) >= 1:
-    #     for line in result:
-    #         modifiedTimes.append(line.decode("utf-8").replace('\n', ''))
-    # print(f'{modifiedTimes = }')
-
-
-
-    print(f'post ../: {getcwd() = }')
-    print(f'{listdir(getcwd()) = }')
-
     for i, path in enumerate(paths) :
-        # if not path.endswith('.md') :
-        #     continue
         path = join(LEETCODE_PATH_FROM_README, path)
-        print(f'{cmd + [path] = }')
-        process = subprocess.Popen(cmd + [f'{path}'],
-                                   shell=False,
-                                #    shell=True,
-                                   stdin=None,
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
-        result = process.stdout.readlines()
-        modifiedTimes = []
-        if len(result) >= 1:
-            for line in result:
-                modifiedTimes.append(line.decode("utf-8").replace('\n', ''))
-
-        print()
-        print()
-        print(f'{path = }')
-        print(f'{modifiedTimes = }')
-        print()
-
-        if modifiedTimes[-1] == '':
-            modifiedTimes.pop()
-        
-        try :
-            creationDate = datetime.strptime(time.ctime(int(modifiedTimes[0])), '%a %b %d %H:%M:%S %Y')
-            modifiedDate = datetime.strptime(time.ctime(int(modifiedTimes[-1])), '%a %b %d %H:%M:%S %Y')
-        except ValueError as ve:
-            print(f'Error in parsing {path}')
-            print(f'{modifiedTimes}')
-            print(ve)
-            exit()
-        print((creationDate, modifiedDate))
-        print()
-
-        output[path] = (creationDate, modifiedDate)
+        output[path] = individualCTimeViaGit(cmd + [path])
 
     # Usually I'd avoid using global for this but this is a personal project so it should be fine.
     _ALL_GIT_CM_TIMES.update(output)
-    print(f'{output = }')
+    print(f'{_ALL_GIT_CM_TIMES = }')
     
     chdir(MAIN_DIRECTORY)
     return output
@@ -190,53 +172,24 @@ def getAllCTimesViaGit(paths: List[str]) -> Dict[str, Tuple[datetime, datetime]]
 
 @cache
 def getCtimesMtimesGitHistory(path: str) -> Tuple[datetime, datetime] :
+    '''
+    WARNING: DO NOT USE LOCALLY. SLOW IF RAN LOCALLY RELATIVE TO THE REGULAR CTIME FUNCTION.
+
+    IF RUNNING LOCALLY, RUN (getCtimeMtimesMain) I.E. WITHOUT THE `-g` FLAG.
+
+    The cost for a single file isn't significant however when you reach ~100+ files, 
+    the cumulative wait can go into the minutes compared to the seconds it would take 
+    with the regular `getctime` and `getmtime` functions (without the `-g` flag)
+    '''
     path = path[path.find('/') + 1:]
-    print('asdf git')
     chdir('../')
     cmd = r"git log --follow --format=%ct --reverse --".split() + [f'{path}']
-    process = subprocess.Popen(cmd,
-                               shell=False,
-                               stdin=None,
-                               stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE)
-    result=process.stdout.readlines()
-    modifiedTimes = []
-    if len(result) >= 1:
-        for line in result:
-            modifiedTimes.append(line.decode("utf-8").replace('\n', ''))
 
-    print(modifiedTimes)
-    
-    # # print(f'{getcwd() = }')
-    # modifiedTimes = subprocess.check_output(cmd)
-    # modifiedTimes = modifiedTimes.decode('utf-8')
-    # modifiedTimes = modifiedTimes.split('\n')
-    # # print(f'{modifiedTimes = }')
-
-    # Linebreak at last element can cause empty string
-    if modifiedTimes[-1] == '':
-        modifiedTimes.pop()
-
-    try :
-        creationDate = datetime.strptime(time.ctime(int(modifiedTimes[0])), '%a %b %d %H:%M:%S %Y')
-        modifiedDate = datetime.strptime(time.ctime(int(modifiedTimes[-1])), '%a %b %d %H:%M:%S %Y')
-    
-    except ValueError as ve :
-        print(f'Error in parsing {path} in individual call not all')
-        print(f"{path[path.find('../') + len('../'):] = }")
-        print(f"{_ALL_GIT_CM_TIMES.get(path[path.find('../') + len('../'):], 'not found') = }")
-        print(f"{_ALL_GIT_CM_TIMES = }")
-
-        print(f'{modifiedTimes = }')
-        print(ve)
-        exit()
-
-
-    print(f'{creationDate, modifiedDate = }')
+    cmDates = individualCTimeViaGit(cmd)
 
     chdir(MAIN_DIRECTORY)
 
-    return (creationDate, modifiedDate)
+    return cmDates
 
 
 # In[ ]:
