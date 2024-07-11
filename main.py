@@ -170,7 +170,7 @@ def getAllCTimesViaGit(paths: List[str]) -> Dict[str, Tuple[datetime, datetime]]
         output[path] = (creationDate, modifiedDate)
 
     # Usually I'd avoid using global for this but this is a personal project so it should be fine.
-    _ALL_GIT_CM_TIMES = output
+    _ALL_GIT_CM_TIMES.update(output)
     print(f'{output = }')
     
     chdir(MAIN_DIRECTORY)
