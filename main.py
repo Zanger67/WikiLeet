@@ -209,8 +209,19 @@ def getCtimesMtimesGitHistory(path: str) -> Tuple[datetime, datetime] :
     if modifiedTimes[-1] == '':
         modifiedTimes.pop()
 
-    creationDate = datetime.strptime(time.ctime(int(modifiedTimes[0])), '%a %b %d %H:%M:%S %Y')
-    modifiedDate = datetime.strptime(time.ctime(int(modifiedTimes[-1])), '%a %b %d %H:%M:%S %Y')
+    try :
+        creationDate = datetime.strptime(time.ctime(int(modifiedTimes[0])), '%a %b %d %H:%M:%S %Y')
+        modifiedDate = datetime.strptime(time.ctime(int(modifiedTimes[-1])), '%a %b %d %H:%M:%S %Y')
+
+    except ValueError as ve :
+        print(f'Error in parsing {path} in individual call not all')
+        print(f"{path[path.find('../') + len('../'):] = }")
+        print(f"{_ALL_GIT_CM_TIMES.get(path[path.find('../') + len('../'):], 'not found') = }")
+        print(f"{_ALL_GIT_CM_TIMES = }")
+
+        print(f'{modifiedTimes = }')
+        print(ve)
+        exit()
 
     print(f'{creationDate, modifiedDate = }')
 
