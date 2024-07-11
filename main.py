@@ -102,7 +102,7 @@ PRIMARY_CATEGORIES = set(['Daily', 'Weekly Premium', 'Contest', 'Favourite'])
 # In[ ]:
 
 
-_ALL_GIT_CM_TIMES = None
+_ALL_GIT_CM_TIMES = {}
 def getAllCTimesViaGit(paths: List[str]) -> Dict[str, Tuple[datetime, datetime]] :
     '''
     WARNING: SLOW
@@ -1255,6 +1255,8 @@ def main(*, recalculateAll: bool = False, noRecord: bool = False) -> None :
 
     if USE_GIT_DATES :
         getAllCTimesViaGit(additionalInfoFiles + leetcodeFiles + [join(x[0], x[1]) for x in contestLeetcodeFiles])
+    
+    print(f'{_ALL_GIT_CM_TIMES = }')
 
     questionDetailsDict     = retrieveQuestionDetails()
     questionTopicsDict      = retrieveQuestionTopics()
