@@ -155,14 +155,14 @@ def getAllCTimesViaGit(paths: List[str]) -> Dict[str, Tuple[datetime, datetime]]
             for line in result:
                 modifiedTimes.append(line.decode("utf-8").replace('\n', ''))
 
-        if modifiedTimes[-1] == '':
-            modifiedTimes.pop()
-
         print()
         print()
         print(f'{path = }')
         print(f'{modifiedTimes = }')
         print()
+
+        if modifiedTimes[-1] == '':
+            modifiedTimes.pop()
         
         try :
             creationDate = datetime.strptime(time.ctime(int(modifiedTimes[0])), '%a %b %d %H:%M:%S %Y')
