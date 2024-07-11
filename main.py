@@ -119,19 +119,21 @@ def getAllCTimesViaGit(paths: List[str]) -> Dict[str, Tuple[datetime, datetime]]
     cmd = r"git log --follow --format=%ct --reverse --".split()
     output = {}
 
-    process = subprocess.Popen(['git', 'log', '--follow', '--format=%ct', '--reverse', '--', 'my-submissions/m1482.md'],
-                                   shell=False,
-                                #    shell=True,
-                                   stdin=None,
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
+    # process = subprocess.Popen(['git', 'log', '--follow', r'--format=%ct', '--reverse', '--', 'my-submissions/m1482.md'],
+    #                                shell=False,
+    #                             #    shell=True,
+    #                                stdin=None,
+    #                                stdout=subprocess.PIPE,
+    #                                stderr=subprocess.PIPE)
 
-    result = process.stdout.readlines()
-    modifiedTimes = []
-    if len(result) >= 1:
-        for line in result:
-            modifiedTimes.append(line.decode("utf-8").replace('\n', ''))
-    print(f'{modifiedTimes = }')
+    # result = process.stdout.readlines()
+    # modifiedTimes = []
+    # if len(result) >= 1:
+    #     for line in result:
+    #         modifiedTimes.append(line.decode("utf-8").replace('\n', ''))
+    # print(f'{modifiedTimes = }')
+
+
 
     print(f'post ../: {getcwd() = }')
     print(f'{listdir(getcwd()) = }')
@@ -156,6 +158,12 @@ def getAllCTimesViaGit(paths: List[str]) -> Dict[str, Tuple[datetime, datetime]]
         if modifiedTimes[-1] == '':
             modifiedTimes.pop()
 
+        print()
+        print()
+        print(f'{path = }')
+        print(f'{modifiedTimes = }')
+        print()
+        
         try :
             creationDate = datetime.strptime(time.ctime(int(modifiedTimes[0])), '%a %b %d %H:%M:%S %Y')
             modifiedDate = datetime.strptime(time.ctime(int(modifiedTimes[-1])), '%a %b %d %H:%M:%S %Y')
@@ -187,7 +195,7 @@ def getCtimesMtimesGitHistory(path: str) -> Tuple[datetime, datetime] :
     chdir('../')
     cmd = r"git log --follow --format=%ct --reverse --".split() + [path]
     process = subprocess.Popen(cmd,
-                               shell=True,
+                               shell=False,
                                stdin=None,
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)
@@ -212,7 +220,7 @@ def getCtimesMtimesGitHistory(path: str) -> Tuple[datetime, datetime] :
     try :
         creationDate = datetime.strptime(time.ctime(int(modifiedTimes[0])), '%a %b %d %H:%M:%S %Y')
         modifiedDate = datetime.strptime(time.ctime(int(modifiedTimes[-1])), '%a %b %d %H:%M:%S %Y')
-
+    
     except ValueError as ve :
         print(f'Error in parsing {path} in individual call not all')
         print(f"{path[path.find('../') + len('../'):] = }")
@@ -222,6 +230,7 @@ def getCtimesMtimesGitHistory(path: str) -> Tuple[datetime, datetime] :
         print(f'{modifiedTimes = }')
         print(ve)
         exit()
+
 
     print(f'{creationDate, modifiedDate = }')
 
@@ -268,6 +277,7 @@ def getCtimeMtimesMain(path: str) -> Tuple[datetime, datetime] :
 
 
 def getCtimeMtimes(path: str, *, preCalculated: Dict[str, Tuple[datetime, datetime]] = None) -> Tuple[datetime, datetime] :
+    # Due to readme realtive and script relative paths
     readme_path = path if ('../' not in path) else path[path.find('../') + len('../'):]
     print(f'{readme_path = }')
     if _ALL_GIT_CM_TIMES and readme_path in _ALL_GIT_CM_TIMES :
@@ -1255,8 +1265,6 @@ def main(*, recalculateAll: bool = False, noRecord: bool = False) -> None :
 
     if USE_GIT_DATES :
         getAllCTimesViaGit(additionalInfoFiles + leetcodeFiles + [join(x[0], x[1]) for x in contestLeetcodeFiles])
-    
-    print(f'{_ALL_GIT_CM_TIMES = }')
 
     questionDetailsDict     = retrieveQuestionDetails()
     questionTopicsDict      = retrieveQuestionTopics()
