@@ -4,8 +4,8 @@
 # In[ ]:
 
 
-import pandas as kungfupanda                    # pandas
-from pandas import DataFrame
+import pandas as kungfupanda                    # pandas for data manipulation and markdown
+from pandas import DataFrame                    # export
 
 from os import listdir                          # for file retrieval and path calculations
 from os.path import isfile, join
@@ -29,14 +29,14 @@ from os.path import getmtime, getctime          # retreiving file creation/modif
 from datetime import datetime
 import time
 
-from os import getenv                           # for environment variables
+from os import getenv, environ                  # for environment variables
 from dotenv import load_dotenv, find_dotenv     # for config purposes (.env file)
 
 from typing import Set, Dict, List, Tuple       # misc. QOL imports
 from collections import defaultdict
 from icecream import ic                         # for debugging / outputs
 
-import re                                       # for regex file name matching
+import re                                       # for regex file name matching / question number matching
 
 import argparse                                 # For command line arguments when calling py script with flags
 import pickle                                   # for saving/loading json records and file 
@@ -46,15 +46,22 @@ from functools import cache                     # for redundancy protection
 
 
 # # Script Configuration
-# 1. Loads `env` variables for reference
+# #### `.env` variables and `working directories`
+# 1. Loads `env` variables for reference.
+#     1. Tries to retrieve it from `../` if found (prioritizing template).
+#     2. If failure, use the `.env` found in the current script directory (in the updater).
 # 2. If is a script run, denotes it as such for script flag references and ensures working directory is the script's location rather than the calling directory.
 
 # In[ ]:
 
 
 # loading env variables
-load_dotenv(find_dotenv(), override=True)
-
+if '.env' in listdir('../') :
+    print('.env found in ../ directory')
+    load_dotenv(find_dotenv('../.env'), override=True)
+else :
+    print('.env found in script directory')
+    load_dotenv(find_dotenv(), override=True)
 
 # NOTE: if the script is being run from a jupyter notebook, then it should
 # already be in the correct directory.
@@ -212,7 +219,6 @@ def getCtimeMtimesMain(path: str) -> Tuple[datetime, datetime] :
     if USE_GIT_DATES :
         return getCtimesMtimesGitHistory(path)
     
-    # print('regular date called')
     creation_date = time.ctime(getctime(path))
     modification_date = time.ctime(getmtime(path))
 
@@ -232,14 +238,12 @@ def getCtimeMtimesMain(path: str) -> Tuple[datetime, datetime] :
 def getCtimeMtimes(path: str, *, preCalculated: Dict[str, Tuple[datetime, datetime]] = None) -> Tuple[datetime, datetime] :
     # Due to readme realtive and script relative paths
     readme_path = path if ('../' not in path) else path[path.find('../') + len('../'):]
-    print(f'{readme_path = }')
     if _ALL_GIT_CM_TIMES and readme_path in _ALL_GIT_CM_TIMES :
         return _ALL_GIT_CM_TIMES[readme_path]
     
     if preCalculated and readme_path in preCalculated :
         return preCalculated[readme_path]
 
-    print('forced manual generation')
     return getCtimeMtimesMain(path)
 
 
@@ -873,6 +877,12 @@ def processMarkdownGeneration(questionData: dict,
                               *,
                               questionDetailsDict: dict = retrieveQuestionDetails(),
                               questionTopicsDict: dict = retrieveQuestionTopics()) -> None :
+    
+    # Create a folder to avoid errors if it doesn't already exist
+    markdownFolder = join(README_PATH, MARKDOWN_PATH)
+    if not isdir(markdownFolder) :
+        mkdir(markdownFolder)
+
     for questionNo, dta in questionData.items() :
         if questionNo in reprocessMarkdown :
             generate_markdown(questionNo, 
@@ -1077,7 +1087,6 @@ def topicBasedMarkdowns(questionData: dict,
             topic_file.write(f'- [{topic}](<{readme_path}>) ({cnt} completed)\n')
             output.append((topic, readme_path))
 
-    # print(f'topic readme output: {output}')
     return output
 
 
@@ -1211,13 +1220,16 @@ def exportPrimaryReadme(dfQuestions:        DataFrame,
 #                 source files have been modified or not
 def main(*, recalculateAll: bool = False, noRecord: bool = False) -> None :
     leetcodeFiles           = getCodeFiles()
-    additionalInfoFiles     = getContextFiles()             # For later use when generating the individual readme files
+    additionalInfoFiles     = getContextFiles()     # For later use when generating the individual readme files
 
     contestFolders          = getContestFolders()
     contestLeetcodeFiles    = getContestFiles(contestFolders)
 
     if USE_GIT_DATES :
-        getAllCTimesViaGit(additionalInfoFiles + leetcodeFiles + [join(x[0], x[1]) for x in contestLeetcodeFiles])
+        getAllCTimesViaGit(additionalInfoFiles 
+                           + leetcodeFiles 
+                           + [join(x[0], x[1]) for x in contestLeetcodeFiles])
+
 
     questionDetailsDict     = retrieveQuestionDetails()
     questionTopicsDict      = retrieveQuestionTopics()
@@ -1227,14 +1239,10 @@ def main(*, recalculateAll: bool = False, noRecord: bool = False) -> None :
 
 
     # Files for leetcode questions found
-    # print(leetcodeFiles)
     print(f'Total of {len(leetcodeFiles)} files found.')
 
     # Files in contest folders found
-    # print(contestLeetcodeFiles)
     print(f'Total of {len(contestLeetcodeFiles)} contest files found.')
-
-    # print(questionDetailsDict)
 
 
     # Parsing primary files
@@ -1243,8 +1251,8 @@ def main(*, recalculateAll: bool = False, noRecord: bool = False) -> None :
     reprocessMarkdown = set()
     questionData = {}
 
-    # print(f'{fileLatestTimes = }')
-
+    # Parsing primary files
+    print('Parsing code files...')
     for leetcodeFile in leetcodeFiles :
         parseCase(leetcodeFile=leetcodeFile,
                   questionData=questionData,
@@ -1253,6 +1261,7 @@ def main(*, recalculateAll: bool = False, noRecord: bool = False) -> None :
                   questionDetailsDict=questionDetailsDict)
         
     # Parsing contest files & folforders
+    print('Parsing contest files...')
     for leetcodeContestFile in contestLeetcodeFiles :
         contestFolder, leetcodeFile = leetcodeContestFile
         parseCase(leetcodeFile=leetcodeFile,
@@ -1264,13 +1273,19 @@ def main(*, recalculateAll: bool = False, noRecord: bool = False) -> None :
                   contest=contestFolder)
         
 
+    # Parsing additional information files
+    print('Parsing additional information/context files...')
     parseContextFiles(txtFiles=additionalInfoFiles, 
                       questionData=questionData,
                       fileLatestTimes=fileLatestTimes,
                       reprocessMarkdown=reprocessMarkdown)
     
+    # Identifying members of lists
+    print('Sorting questions to their lists...')
     processListData(questionData=questionData)
 
+    # Generating markdowns for each individual question
+    print('Generating markdowns for each individual question...')
     processMarkdownGeneration(questionData=questionData, 
                               reprocessMarkdown=reprocessMarkdown, 
                               questionDetailsDict=questionDetailsDict, 
@@ -1279,6 +1294,7 @@ def main(*, recalculateAll: bool = False, noRecord: bool = False) -> None :
     # Produces a markdown where questions are sorted by the amount of code
     # written for the question
     # code_length_md_path = exportCodeLengthMarkdown(questionData)
+    print('Generating category lists...')
     byCodeLength        = miscMarkdownGenerations(questionData, code_length=True)
     byRecentlySolved    = miscMarkdownGenerations(questionData, recent=True)
     dailyQuestions      = miscMarkdownGenerations(questionData, daily=True)
@@ -1290,19 +1306,23 @@ def main(*, recalculateAll: bool = False, noRecord: bool = False) -> None :
     completedQsTopicGroupings = getCompletedQuestionsTopicLists(questionData)
     topicMarkdownLinks = topicBasedMarkdowns(questionData, topicGroupings=completedQsTopicGroupings)
     altSorts.append(f'- [Grouped by Topic](<{topicMarkdownLinks[0]}>)')
-    # print(topicMarkdownLinks)
 
 
+    # Exporting the primary README.md file
+    print('Exporting primary README.md file...')
     dfQuestions = convertQuestionDataToDataframe(questionData, includeDate=False, includeMarkdownFolder=True)
     exportPrimaryReadme(dfQuestions, additionalSorts=altSorts, topicLinks=topicMarkdownLinks)
 
+
     print(f'Number of individual questions updated/added: {len(reprocessMarkdown)}')
 
+
     if not noRecord :
+        print('Pickling most recent modification times for future reference...')
         writeRecentFileTimes(fileLatestTimes)           # restore for next use
 
-    # print(len(questionData))
 
+    print('All processes complete. Exiting...')
     return questionData, reprocessMarkdown
 
 
