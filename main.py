@@ -986,8 +986,10 @@ def convertQuestionDataToDataframe(questionData: dict,
                                        includeQuestions=includeQuestions,
                                        relativeFolderAdjustment=relativeFolderAdjustment,
                                        includeMarkdownFolder=includeMarkdownFolder)
-    print(f'{questionData = }')
-    dfQuestions   = kungfupanda.DataFrame(data=questionData, columns=COLUMNS[:len(questionData[0])])
+    dfQuestions = kungfupanda.DataFrame()
+    if questionData :
+        dfQuestions   = kungfupanda.DataFrame(data=questionData, columns=COLUMNS[:len(questionData[0])])
+    
     # dfQuestions   = dfQuestions.astype(TYPE_CLARIFICATION[:len(questionData[0])])
 
     return dfQuestions
@@ -1108,15 +1110,6 @@ def miscMarkdownGenerations(questionData:   dict,
     fileName = None
     header_data = None
     details = None
-
-    print(f'{code_length = }')
-    print(f'{recent = }')
-    print(f'{daily = }')
-    
-    print('\nQuestion Data:')
-    for q, d in questionData.items() :
-        print(f'{d}')
-    print()
 
     # print(f'{code_length, recent = }')
     if code_length :
