@@ -987,7 +987,11 @@ def convertQuestionDataToDataframe(questionData: dict,
                                        relativeFolderAdjustment=relativeFolderAdjustment,
                                        includeMarkdownFolder=includeMarkdownFolder)
     
-    dfQuestions   = kungfupanda.DataFrame(data=questionData, columns=COLUMNS[:len(questionData[0])])
+    # Protects against empty cases (e.g. if you have no daily files)
+    dfQuestions = kungfupanda.DataFrame()
+    if questionData :
+        dfQuestions   = kungfupanda.DataFrame(data=questionData, columns=COLUMNS[:len(questionData[0])])
+    
     # dfQuestions   = dfQuestions.astype(TYPE_CLARIFICATION[:len(questionData[0])])
 
     return dfQuestions
