@@ -986,7 +986,7 @@ def convertQuestionDataToDataframe(questionData: dict,
                                        includeQuestions=includeQuestions,
                                        relativeFolderAdjustment=relativeFolderAdjustment,
                                        includeMarkdownFolder=includeMarkdownFolder)
-    
+    print(f'{questionData = }')
     dfQuestions   = kungfupanda.DataFrame(data=questionData, columns=COLUMNS[:len(questionData[0])])
     # dfQuestions   = dfQuestions.astype(TYPE_CLARIFICATION[:len(questionData[0])])
 
