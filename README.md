@@ -23,8 +23,10 @@ If you'd like to use this for yourself, you can either import this repo as a sub
 
 ## How to Use
 
-See [here](https://github.com/Zanger67/leetcode-template/tree/main) for the template repository and instructions on how to make use of it.
-
+There are two straightforward options:
+1. Fork [this template repo](https://github.com/Zanger67/leetcode-template/tree/main) and follow the steps found.
+2. Add [generate-markdowns.yml](generate-markdowns.yml) as a GitHub action in any repository that contains a directory called `my-submissions`. 
+Make sure to add your GitHub PAT with repository read/write permissions as a repository secret under the name `PAT` for this to work.
 
 ## About the files and directories
 
