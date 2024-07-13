@@ -60,7 +60,7 @@ if '.env' in listdir('../') :
     print('.env found in ../ directory')
     load_dotenv(find_dotenv('../.env'), override=True)
 else :
-    print('.env found in script directory')
+    print('Default .env used from script directory (.readme_updater/)')
     load_dotenv(find_dotenv(), override=True)
 
 # NOTE: if the script is being run from a jupyter notebook, then it should
@@ -530,9 +530,15 @@ def parseCase(leetcodeFile:         str,  # file name
 
     path = join(LEETCODE_PATH_FROM_README, subFolderPath, leetcodeFile).replace("\\", "/")
 
-    number      = int(re.search("\d{1,4}", leetcodeFile).group())   # Takes the first full number as the question
-    level       = questionDetailsDict[number][3][0].lower()     # number and uses that as reference
-                                                                # e.g. 'e123 v1.py' becomes 123
+    try :
+        number      = int(re.search("\d{1,4}", leetcodeFile).group())   # Takes the first full number as the question
+        level       = questionDetailsDict[number][3][0].lower()         # number and uses that as reference
+                                                                        # e.g. 'e123 v1.py' becomes 123
+    except AttributeError as ae :
+        print(f'Error in parsing {leetcodeFile}: Attribute Error encountered while trying to extract question number int(...).',
+                '\nparseCase(...)',
+                '\nSkipping')
+        return False
 
     creationtime, modificationtime = getCtimeMtimes(join(README_PATH, path))
 
@@ -647,12 +653,19 @@ def parseContextFiles(txtFiles: str,
     for fileName in txtFiles :
         print(f'Context file found: {fileName}')
 
-        if '\\' in fileName :
-            number = int(re.search("\d{1,4}", fileName[fileName.find('\\') + 1:]).group())
-        elif '/' in fileName :
-            number = int(re.search("\d{1,4}", fileName[fileName.find('/') + 1:]).group())
-        else :
-            number = int(re.search("\d{1,4}", fileName).group())
+        try :    
+            if '\\' in fileName :
+                number = int(re.search("\d{1,4}", fileName[fileName.find('\\') + 1:]).group())
+            elif '/' in fileName :
+                number = int(re.search("\d{1,4}", fileName[fileName.find('/') + 1:]).group())
+            else :
+                number = int(re.search("\d{1,4}", fileName).group())
+        except AttributeError as ae :
+            print(f'Error in parsing {fileName}: Attribute Error encountered while trying to extract question number int(...).',
+                  '\nparseContextFiles(...)',
+                  '\nSkipping')
+            continue
+    
         if number not in questionData :
             print(f'Error. No question solution found for context file ({fileName = })')
             continue
@@ -1259,9 +1272,6 @@ def main(*, recalculateAll: bool = False, noRecord: bool = False) -> None :
     reprocessMarkdown = set()
     questionData = {}
 
-    print(f'{leetcodeFiles = }\n')
-    print(f'{contestLeetcodeFiles = }\n')
-    print(f'{parseContextFiles = }\n')
     # Parsing primary files
     print('Parsing code files...')
     for leetcodeFile in leetcodeFiles :
@@ -1270,8 +1280,7 @@ def main(*, recalculateAll: bool = False, noRecord: bool = False) -> None :
                   fileLatestTimes=fileLatestTimes, 
                   reprocessMarkdown=reprocessMarkdown,
                   questionDetailsDict=questionDetailsDict)
-    
-    
+        
     # Parsing contest files & folforders
     print('Parsing contest files...')
     for leetcodeContestFile in contestLeetcodeFiles :
