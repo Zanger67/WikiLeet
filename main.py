@@ -1259,6 +1259,9 @@ def main(*, recalculateAll: bool = False, noRecord: bool = False) -> None :
     reprocessMarkdown = set()
     questionData = {}
 
+    print(f'{leetcodeFiles = }\n')
+    print(f'{contestLeetcodeFiles = }\n')
+    print(f'{parseContextFiles = }\n')
     # Parsing primary files
     print('Parsing code files...')
     for leetcodeFile in leetcodeFiles :
@@ -1267,7 +1270,8 @@ def main(*, recalculateAll: bool = False, noRecord: bool = False) -> None :
                   fileLatestTimes=fileLatestTimes, 
                   reprocessMarkdown=reprocessMarkdown,
                   questionDetailsDict=questionDetailsDict)
-        
+    
+    
     # Parsing contest files & folforders
     print('Parsing contest files...')
     for leetcodeContestFile in contestLeetcodeFiles :
