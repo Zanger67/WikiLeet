@@ -596,6 +596,7 @@ def getCodeFiles() -> List[str] :
     return [x for x in listdir(LEETCODE_PATH_REFERENCE) if isfile(join(LEETCODE_PATH_REFERENCE, x))
                                                            and not x.endswith('.txt')
                                                            and not x.endswith('.md')
+                                                           and not x.endswith('.gitignore')
                                                            and '.' in x]
 
 @cache
@@ -607,13 +608,15 @@ def getContextFiles(contestFolders: List[str] = getContestFolders()) -> List[str
     output = [x for x in listdir(LEETCODE_PATH_REFERENCE) if isfile(join(LEETCODE_PATH_REFERENCE, x)) 
                                                              and (x.endswith('.txt') 
                                                                   or x.endswith('.md') 
-                                                                  or '.' not in x)]
+                                                                  or '.' not in x)
+                                                             and not x.endswith('.gitignore')]
     for folder in contestFolders :
         output.extend([join(folder, y) for y in listdir(join(LEETCODE_PATH_REFERENCE, folder)) 
                                 if isfile(join(LEETCODE_PATH_REFERENCE, folder, y))
                                    and (y.endswith('.txt') 
                                         or y.endswith('.md') 
-                                        or '.' not in y)])
+                                        or '.' not in y)
+                                   and not y.endswith('.gitignore')])
     return output
 
 def getContestFiles(contestFolders: List[str]) -> List[Tuple[str, str]] :
@@ -624,7 +627,8 @@ def getContestFiles(contestFolders: List[str]) -> List[Tuple[str, str]] :
                                                                 if isfile(join(LEETCODE_PATH_REFERENCE, contestFolder, fileName))
                                                                     and not fileName.endswith('.txt')
                                                                     and not fileName.endswith('.md')
-                                                                    and '.' in fileName])
+                                                                    and '.' in fileName
+                                                                    and not fileName.endswith('.gitignore')])
     
     return contestLeetcodeFiles
 
