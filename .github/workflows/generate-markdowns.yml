@@ -9,7 +9,7 @@ on:
     # Allows for manual runs
     workflow_call:
         secrets:
-            envPAT:
+            PAT:
               required: true
 
     # # Runs on commit *if* there's been a new code file added
