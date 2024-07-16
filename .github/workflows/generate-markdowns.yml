@@ -9,14 +9,14 @@ on:
     # Allows for manual runs
     workflow_dispatch:
 
-    # Runs on commit *if* there's been a new code file added
-    # paths used to prevent self looping where the markdown
-    # push is detected and triggers another git action
-    push:
-        branches:
-            - main
-        paths:
-            - 'my-submissions/**'
+    # # Runs on commit *if* there's been a new code file added
+    # # paths used to prevent self looping where the markdown
+    # # push is detected and triggers another git action
+    # push:
+    #     branches:
+    #         - main
+    #     paths:
+    #         - 'my-submissions/**'
 
 permissions:
     contents: write
