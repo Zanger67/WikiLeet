@@ -1,0 +1,26 @@
+name: '[Updating markdown files]'
+
+on:
+    workflow_dispatch:
+        # inputs:
+        #   lang_choice:
+        #     type: choice
+        #     description: 'Choose the language you want to use'
+        #     required: true
+        #     default: 'c++'
+        #     options:
+        #       - 'javascript'
+        #       - 'python'
+        #       - 'java'
+        #       - 'c++'
+
+permissions:
+    contents: write
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        
+        steps:
+            - name: Call and run markdown generator
+              uses: Zanger67/Wikileet@master
