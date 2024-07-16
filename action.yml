@@ -45,7 +45,7 @@ jobs:
 
                   # Markdown generator is found in submodule
                   submodules: "true"
-                  token: ${{ secrets.PAT }}
+                  token: ${{ secrets.envPAT }}
 
 
             - name: Pull current version of markdown generator | Cloning if not present 
