@@ -7,7 +7,7 @@ secrets:
 
 runs:
   using: 'composite'
-  runs-on: ubuntu-latest
+  # runs-on: ubuntu-latest
   steps:
     - name: Checkout the current repository content
         uses: actions/checkout@v2
