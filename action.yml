@@ -10,17 +10,17 @@ runs:
   # runs-on: ubuntu-latest
   steps:
     - name: Checkout the current repository content
-        uses: actions/checkout@v2
-        with:
-            # Fetch all commits since init
-            # If not present, the date for every single file will
-            # default to the most recent commit date since there's 
-            # nothing to trace.
-            fetch-depth: 0
+      uses: actions/checkout@v2
+      with:
+          # Fetch all commits since init
+          # If not present, the date for every single file will
+          # default to the most recent commit date since there's 
+          # nothing to trace.
+          fetch-depth: 0
 
-            # Markdown generator is found in submodule
-            submodules: "true"
-            token: ${{ secrets.PAT }}
+          # Markdown generator is found in submodule
+          submodules: "true"
+          token: ${{ secrets.PAT }}
 
 
     - name: Pull current version of markdown generator | Cloning if not present 
