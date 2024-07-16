@@ -1,9 +1,84 @@
 name: 'LeetCode Markdown Generation'
 description: 'Generates markdown files for LeetCode submissions in my-submissions folder'
 
+secrets:
+  PAT:
+    required: true
+
 runs:
   using: 'composite'
-  main: '.github/workflows/generate-markdowns.yml'
+  runs-on: ubuntu-latest
+  steps:
+    - name: Checkout the current repository content
+        uses: actions/checkout@v2
+        with:
+            # Fetch all commits since init
+            # If not present, the date for every single file will
+            # default to the most recent commit date since there's 
+            # nothing to trace.
+            fetch-depth: 0
+
+            # Markdown generator is found in submodule
+            submodules: "true"
+            token: ${{ secrets.PAT }}
+
+
+    - name: Pull current version of markdown generator | Cloning if not present 
+      run: |
+        if [ -d .readme_updater/ ]; then
+            echo "Submodule exists."
+            git submodule update --recursive --remote
+        else
+            echo "Submodule not found. Adding..."
+            git submodule add https://github.com/Zanger67/Leetcode-Progress-Tracker.git '.readme_updater'
+            git submodule update --init --recursive
+        fi
+
+        cd .readme_updater
+
+        # Present for testing branch -- unused
+        git fetch origin testing2
+        git checkout testing2
+
+        # # Make sure current branch is the main live branch
+        # git fetch origin main
+        # git checkout main
+        
+        cd ../
+
+
+    - name: Setup python 3.10
+      uses: actions/setup-python@v4
+      with:
+          python-version: "3.10"
+          cache: "pip"
+
+
+      # Dependencies for the markdown generator
+    - name: Install python packages
+      run: |
+          python -m pip install --upgrade pip
+          pip install -r '.readme_updater/requirements.txt'
+
+
+    - name: Execute the markdown generation python script
+      # -n: ignores previous .pkl stores of the modified dates (regenerate all from scratch)
+      # -g: use github log history to determine creation and modification dates of files
+      run: python '.readme_updater/main.py' -n -g
+
+
+      # Note: exit 0 should be redundant since this action triggers on a modification meaning
+      #       at least one file edit, but might as well keep it in case of future changes
+      #
+      #       Only exception I can think of is if you make a change in one commit 
+      #       then revert it in the next
+    - name: Commit updated markdown files to repo
+      run: |
+          git config --global user.name "Zanger67/leetcode"
+          git config --global user.email "Zanger67[bot]@Zanger67.github.io"
+          git add .
+          git commit -m 'Updated markdown files' || exit 0
+          git push
 
 
 # name: '[Updating markdown files]'
