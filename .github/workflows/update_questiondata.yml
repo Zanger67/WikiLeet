@@ -1,0 +1,66 @@
+name: '[Updating LeetCode question data]'
+
+on:
+    schedule:
+        - cron: "15 5 * * 0"    # runs at 5:15 am UTC on SUNDAYS
+                                # matches my 'leetcode question-data'
+                                # repo's schedule with a slight delay to allow
+                                # for the request to occur
+                                #
+                                # Chose this due to contests being on Saturday
+                                # at 2:30 am UTC
+
+    workflow_dispatch:
+
+permissions: 
+    contents: write
+
+
+jobs: 
+    build:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout the current repository content
+              uses: actions/checkout@v2
+              with:
+                submodules: "true"
+                token: ${{ secrets.PAT }}
+
+            - name: Pull updated question data submodule | Adding it as a submodule if not present 
+              run: |
+                  if [ -d question_data/question_data/ ]; then
+                      echo "Submodule exists."
+                      git submodule update --recursive --remote
+                  else
+                      echo "Submodule not found. Adding..."
+                      git submodule add https://github.com/Zanger67/leetcode-question-data.git 'question_data/question_data'
+                      git submodule update --init --recursive
+                  fi
+
+            - name: Copy the new JSON file
+              run: |
+                  cp 'question_data/question_data/data/leetcode_oneline.json' 'question_data/leetcode_data.json'
+            
+            - name: Setup python 3.10
+              uses: actions/setup-python@v4
+              with:
+                  python-version: "3.10"
+                  cache: "pip"
+
+            - name: Install python packages
+              run: |
+                  python -m pip install --upgrade pip
+                  pip install -r 'requirements.txt'
+
+
+            - name: Parse newly imported data
+              run: |
+                  python parse_official_question_data.py
+
+            - name: Commit and push the updated JSON file
+              run: |
+                git config --global user.name "Zanger67/wikileet"
+                git config --global user.email "Zanger67[bot]@Zanger67.github.io"
+                git add .
+                git commit -m 'Updated question data pickles' || exit 0
+                git push
