@@ -1129,8 +1129,8 @@ def generateDifficultyLevelMarkdowns(questionData: dict) -> Tuple[Tuple[int, str
     mediumQuestions = {}
     hardQuestions = {}
     
-    lvlIndicator = d['level'][0].lower()
     for q, d in questionData.items() :
+        lvlIndicator = d['level'][0].lower()
         match lvlIndicator :
             case 'e' :
                 easyQuestions[q] = d
