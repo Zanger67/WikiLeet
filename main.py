@@ -1111,6 +1111,74 @@ def topicBasedMarkdowns(questionData: dict,
     return output
 
 
+# # Markdowns for Easy/Medium/Hard
+
+# In[ ]:
+
+
+DIFFICULTY_MARKDOWNS_PATH = MARKDOWN_PATH
+
+def generateDifficultyLevelMarkdowns(questionData: dict) -> Tuple[Tuple[int, str], Tuple[int, str], Tuple[int, str]] :
+    '''
+    ### Returns:
+    - Tuple[Easy, Medium, Hard]
+        - Tuple[int, str] : (count, path from readme)
+    '''
+    
+    easyQuestions = {}
+    mediumQuestions = {}
+    hardQuestions = {}
+    
+    lvlIndicator = d['level'][0].lower()
+    for q, d in questionData.items() :
+        match lvlIndicator :
+            case 'e' :
+                easyQuestions[q] = d
+            case 'm' :
+                mediumQuestions[q] = d
+            case 'h' :
+                hardQuestions[q] = d
+            case _ :
+                print(f'Error identifying level of {q = }')
+    
+    easyMarkdown    = convertQuestionDataToDataframe(easyQuestions, 
+                                                     includeDate=True, 
+                                                     includeMarkdownFolder=True)
+    mediumMarkdown  = convertQuestionDataToDataframe(mediumQuestions, 
+                                                     includeDate=True, 
+                                                     includeMarkdownFolder=True)
+    hardMarkdown    = convertQuestionDataToDataframe(hardQuestions, 
+                                                     includeDate=True, 
+                                                     includeMarkdownFolder=True)
+    
+    
+    easy_path   = join(DIFFICULTY_MARKDOWNS_PATH, 'Easy.md')
+    medium_path = join(DIFFICULTY_MARKDOWNS_PATH, 'Medium.md')
+    hard_path   = join(DIFFICULTY_MARKDOWNS_PATH, 'Hard.md')
+    
+    with open('../' + easy_path, 'w', encoding='utf-8') as f :
+        f.write(f'# Easy Questions ({len(easy_path)})\n\n')
+        f.write('*[Back to top](<../README.md>)*\n\n')
+        f.write('------\n\n')
+        f.write(easyMarkdown.to_markdown(index=False))
+        
+    with open('../' + medium_path, 'w', encoding='utf-8') as f :
+        f.write(f'# Medium Questions ({len(medium_path)})\n\n')
+        f.write('*[Back to top](<../README.md>)*\n\n')
+        f.write('------\n\n')
+        f.write(mediumMarkdown.to_markdown(index=False))
+        
+    with open('../' + hard_path, 'w', encoding='utf-8') as f :
+        f.write(f'# Hard Questions ({len(hard_path)})\n\n')
+        f.write('*[Back to top](<../README.md>)*\n\n')
+        f.write('------\n\n')
+        f.write(hardMarkdown.to_markdown(index=False))
+    
+    return ((len(easyQuestions),    easy_path),
+            (len(mediumQuestions),  medium_path),
+            (len(hardQuestions),    hard_path))
+
+
 # ## Exports
 
 # ## Dailies, Recents, etc.
@@ -1188,13 +1256,25 @@ def miscMarkdownGenerations(questionData:   dict,
 
 def exportPrimaryReadme(dfQuestions:        DataFrame,
                         *,
+                        difficultyBasedMarkdowns: Tuple[Tuple[int, str], 
+                                                        Tuple[int, str], 
+                                                        Tuple[int, str]] = None,
                         additionalSorts:    List[str] = [],
                         topicLinks:         List[Tuple[str, str]] = []) -> None :
     readmePath = join(README_PATH, 'README.md')
     print(readmePath)
+
+    # No. Questions Solved
+    qSolvedHeader = len(dfQuestions.index)
+    
+    if difficultyBasedMarkdowns :
+        qSolvedHeader += f' - [{difficultyBasedMarkdowns[0][0]}E](<{difficultyBasedMarkdowns[0][1]}>), ' + \
+                            f'[{difficultyBasedMarkdowns[1][0]}M](<{difficultyBasedMarkdowns[1][1]}>), ' + \
+                            f'[{difficultyBasedMarkdowns[2][0]}H](<{difficultyBasedMarkdowns[2][1]}>)'
+    
     with open(readmePath, 'w') as file :
         username = getenv('LEETCODE_USERNAME')
-        file.write(f'# **[LeetCode Records](https://leetcode.com/u/{username}/)** ({len(dfQuestions.index)} solved)\n\n')
+        file.write(f'# **[LeetCode Records](https://leetcode.com/u/{username}/)** ({qSolvedHeader} solved)\n\n')
 
         file.write(f'> My LeetCode Profile: [{username}](https://leetcode.com/u/{username}/)\n\n')
 
@@ -1322,6 +1402,9 @@ def main(*, recalculateAll: bool = False, noRecord: bool = False) -> None :
     altSorts            = [f'- [Daily Questions](<{dailyQuestions}>)',
                            f'- [Questions By Code Length](<{byCodeLength}>)',
                            f'- [Questions By Recent](<{byRecentlySolved}>)']
+    
+
+    difficultyBasedMarkdowns = generateDifficultyLevelMarkdowns(questionData)
     
 
     completedQsTopicGroupings = getCompletedQuestionsTopicLists(questionData)

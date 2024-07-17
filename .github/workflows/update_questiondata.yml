@@ -62,5 +62,5 @@ jobs:
                 git config --global user.name "Zanger67/wikileet"
                 git config --global user.email "Zanger67[bot]@Zanger67.github.io"
                 git add .
-                git commit -m 'Updated question data pickles' || exit 0
+                git commit -m '[Weekly question data pickle update]' || exit 0
                 git push
