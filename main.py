@@ -1265,8 +1265,9 @@ def exportPrimaryReadme(dfQuestions:        DataFrame,
     print(readmePath)
 
     # No. Questions Solved
-    qSolvedHeader = len(dfQuestions.index)
+    qSolvedHeader = str(len(dfQuestions.index))
     
+    print(difficultyBasedMarkdowns)
     if difficultyBasedMarkdowns :
         qSolvedHeader += f' - [{difficultyBasedMarkdowns[0][0]}E](<{difficultyBasedMarkdowns[0][1]}>), ' + \
                             f'[{difficultyBasedMarkdowns[1][0]}M](<{difficultyBasedMarkdowns[1][1]}>), ' + \
