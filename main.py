@@ -1157,19 +1157,19 @@ def generateDifficultyLevelMarkdowns(questionData: dict) -> Tuple[Tuple[int, str
     hard_path   = join(DIFFICULTY_MARKDOWNS_PATH, 'Hard.md')
     
     with open('../' + easy_path, 'w', encoding='utf-8') as f :
-        f.write(f'# Easy Questions ({len(easy_path)})\n\n')
+        f.write(f'# Easy Questions ({len(easyQuestions)})\n\n')
         f.write('*[Back to top](<../README.md>)*\n\n')
         f.write('------\n\n')
         f.write(easyMarkdown.to_markdown(index=False))
         
     with open('../' + medium_path, 'w', encoding='utf-8') as f :
-        f.write(f'# Medium Questions ({len(medium_path)})\n\n')
+        f.write(f'# Medium Questions ({len(mediumQuestions)})\n\n')
         f.write('*[Back to top](<../README.md>)*\n\n')
         f.write('------\n\n')
         f.write(mediumMarkdown.to_markdown(index=False))
         
     with open('../' + hard_path, 'w', encoding='utf-8') as f :
-        f.write(f'# Hard Questions ({len(hard_path)})\n\n')
+        f.write(f'# Hard Questions ({len(hardQuestions)})\n\n')
         f.write('*[Back to top](<../README.md>)*\n\n')
         f.write('------\n\n')
         f.write(hardMarkdown.to_markdown(index=False))
@@ -1414,8 +1414,13 @@ def main(*, recalculateAll: bool = False, noRecord: bool = False) -> None :
 
     # Exporting the primary README.md file
     print('Exporting primary README.md file...')
-    dfQuestions = convertQuestionDataToDataframe(questionData, includeDate=False, includeMarkdownFolder=True)
-    exportPrimaryReadme(dfQuestions, additionalSorts=altSorts, topicLinks=topicMarkdownLinks)
+    dfQuestions = convertQuestionDataToDataframe(questionData, 
+                                                 includeDate=False, 
+                                                 includeMarkdownFolder=True)
+    exportPrimaryReadme(dfQuestions, 
+                        additionalSorts=altSorts, 
+                        topicLinks=topicMarkdownLinks, 
+                        difficultyBasedMarkdowns=difficultyBasedMarkdowns)
 
 
     print(f'Number of individual questions updated/added: {len(reprocessMarkdown)}')
