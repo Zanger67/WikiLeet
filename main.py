@@ -1277,13 +1277,14 @@ def exportPrimaryReadme(dfQuestions:        DataFrame,
         username = getenv('LEETCODE_USERNAME')
         file.write(f'# **[LeetCode Records](https://leetcode.com/u/{username}/)** ({qSolvedHeader})\n\n')
         
-        file.write(f'> My LeetCode Profile: [{username}](https://leetcode.com/u/{username}/)\n\n')
+        file.write(f'> My LeetCode Profile: [{username}](https://leetcode.com/u/{username}/)\n')
         
-        if difficultyBasedMarkdowns :
-            file.write(f'> [{difficultyBasedMarkdowns[0][0]} easy](<{difficultyBasedMarkdowns[0][1]}>), ' + \
-                       f'[{difficultyBasedMarkdowns[1][0]} medium](<{difficultyBasedMarkdowns[1][1]}>), ' + \
-                       f'[{difficultyBasedMarkdowns[2][0]} hard](<{difficultyBasedMarkdowns[2][1]}>)')
-            file.write('\n\n')
+        # if difficultyBasedMarkdowns :
+        #     file.write(f'> [{difficultyBasedMarkdowns[0][0]} easy](<{difficultyBasedMarkdowns[0][1]}>), ' + \
+        #                f'[{difficultyBasedMarkdowns[1][0]} medium](<{difficultyBasedMarkdowns[1][1]}>), ' + \
+        #                f'[{difficultyBasedMarkdowns[2][0]} hard](<{difficultyBasedMarkdowns[2][1]}>)')
+        
+        file.write('\n\n')
 
         file.write('## About this Repo\n\n')
         file.write('This repo is a collection of my LeetCode solutions, primarily written in Python, Java, and C. ' + 
