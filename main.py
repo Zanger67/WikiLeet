@@ -170,7 +170,7 @@ def getAllCTimesViaGit(paths: List[str]) -> Dict[str, Tuple[datetime, datetime]]
     cmd = r"git log --follow --format=%ct --reverse --".split()
     output = {}
 
-    with tqdm(total=len(paths)) as pbar :
+    with tqdm(total=len(paths), position=0, leave=True) as pbar :
         for i, path in enumerate(paths) :
             path = join(LEETCODE_PATH_FROM_README, path)
             output[path] = individualCTimeViaGit(cmd + [path])
