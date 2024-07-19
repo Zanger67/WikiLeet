@@ -36,6 +36,9 @@ from typing import Set, Dict, List, Tuple       # misc. QOL imports
 from collections import defaultdict
 from icecream import ic                         # for debugging / outputs
 
+# TQDM import done below to check if this is 
+# a .py or .ipynb file
+
 import re                                       # for regex file name matching / question number matching
 
 import argparse                                 # For command line arguments when calling py script with flags
@@ -76,6 +79,11 @@ try:
 except NameError:
     print('NameError')
     pass
+
+if IS_NOTEBOOK :
+    import tqdm.notebook as tqdm
+else :
+    from tqdm import tqdm
 
 
 # README_ABS_DIR will get confirmed in if name==main prior to running
@@ -162,9 +170,11 @@ def getAllCTimesViaGit(paths: List[str]) -> Dict[str, Tuple[datetime, datetime]]
     cmd = r"git log --follow --format=%ct --reverse --".split()
     output = {}
 
-    for i, path in enumerate(paths) :
-        path = join(LEETCODE_PATH_FROM_README, path)
-        output[path] = individualCTimeViaGit(cmd + [path])
+    with tqdm(total=len(paths)) as pbar :
+        for i, path in enumerate(paths) :
+            path = join(LEETCODE_PATH_FROM_README, path)
+            output[path] = individualCTimeViaGit(cmd + [path])
+            pbar.update(1)
 
     # Usually I'd avoid using global for this but this is a personal project so it should be fine.
     _ALL_GIT_CM_TIMES.update(output)
