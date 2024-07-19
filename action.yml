@@ -6,8 +6,8 @@ inputs:
   username:
     description: |
       'Your LeetCode username'
-      'Default: Zanger67'
-    default: 'Zanger67'
+      'Default: Zanger'
+    default: 'Zanger'
 
 
 secrets:
