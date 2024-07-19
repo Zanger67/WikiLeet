@@ -1,5 +1,14 @@
 name: 'LeetCode Markdown Generation'
-description: 'Generates markdown files for LeetCode submissions in my-submissions folder'
+description: 'Automatically parses LeetCode submissions and updates the markdown files in the repository'
+author: 'Zanger67'
+
+inputs: 
+  username:
+    description: |
+      'Your LeetCode username'
+      'Default: Zanger67'
+    default: 'Zanger67'
+
 
 secrets:
   PAT:
@@ -24,6 +33,7 @@ runs:
 
 
     - name: Pull current version of markdown generator | Cloning if not present 
+      shell: bash
       run: |
         if [ -d .readme_updater/ ]; then
             echo "Submodule exists."
@@ -56,12 +66,14 @@ runs:
 
       # Dependencies for the markdown generator
     - name: Install python packages
+      shell: bash
       run: |
           python -m pip install --upgrade pip
           pip install -r '.readme_updater/requirements.txt'
 
 
     - name: Execute the markdown generation python script
+      shell: bash
       # -n: ignores previous .pkl stores of the modified dates (regenerate all from scratch)
       # -g: use github log history to determine creation and modification dates of files
       run: python '.readme_updater/main.py' -n -g
@@ -73,25 +85,11 @@ runs:
       #       Only exception I can think of is if you make a change in one commit 
       #       then revert it in the next
     - name: Commit updated markdown files to repo
+      shell: bash
       run: |
           git config --global user.name "Zanger67/leetcode"
           git config --global user.email "Zanger67[bot]@Zanger67.github.io"
           git add .
           git commit -m 'Updated markdown files' || exit 0
           git push
-
-
-# name: '[Updating markdown files]'
-
-# on:
-#     # If you want it to run max once a day
-#     # schedule:
-#     # - cron: "25 8 * * *"    #runs at 12am PST each day
-
-
-#     # Allows for manual runs
-#     workflow_call:
-#         secrets:
-#             PAT:
-#               required: true
 
