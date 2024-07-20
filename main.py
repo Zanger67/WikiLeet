@@ -426,16 +426,10 @@ def retrieveQuestionDetails() -> dict :
         A dictionary containing the question details matched to the question's assigned number
     '''
     
-    question_data_folder    = getenv('QUESTION_DATA_PATH')
-    question_details_file   = getenv('LEETCODE_QUESTION_DETAILS')
+    question_data_folder = join(getenv('SUBMODULE_DATA_PATH'), getenv('LEETCODE_QUESTION_DETAILS'))
 
-    if not isfile(join(question_data_folder, question_details_file)) :
-        print('Rerunning json-to-pkl parse and export due to the file(s) not being found.')
-        print()
-        import parse_official_question_data
-        
-    if not isfile(join(question_data_folder, question_details_file)) :
-        print('\nError in parsing official question data. Exiting...')
+    if not isfile(question_data_folder) :
+        print('\nError in parsing official question data. leetcode.pkl not found. Exiting...')
         print()
         exit()
     else : 
@@ -443,51 +437,10 @@ def retrieveQuestionDetails() -> dict :
 
 
     # schema: key=int(questionNumber)   val=(title, titleSlug, paidOnly, difficulty, acRate)
-    with open(join(question_data_folder, question_details_file), 'rb') as fp:
+    with open(join(question_data_folder), 'rb') as fp:
         questionDetailsDict = pickle.load(fp)
-        # print('Question Details dictionary')
-        # print(questionDetailsDict)
 
     return questionDetailsDict
-
-
-# In[ ]:
-
-
-@cache
-def retrieveQuestionTopics() -> dict :
-    '''
-    Retrieves the topics associated with each question (e.g. Array, LinkedList, 
-    BST, etc.) from the relevant `.pkl` file containing parsed official LeetCode json data.
-
-    ### Returns :
-    questionDetailsDict : dict
-        A dictionary containing the question details matched to the question's assigned number
-    '''
-    
-    question_data_folder    = getenv('QUESTION_DATA_PATH')
-    question_topics_file   = getenv('LEETCODE_QUESTION_TOPICS')
-
-    if not isfile(join(question_data_folder, question_topics_file)) :
-        print('Rerunning json-to-pkl parse and export due to the file(s) not being found.')
-        print()
-        import parse_official_question_data
-        
-    if not isfile(join(question_data_folder, question_topics_file)) :
-        print('\nError in parsing official question data. Exiting...')
-        print()
-        exit()
-    else : 
-        print('\nFiles found. Importing now...\n')
-
-    # schema: key-int(questionNumber)   val=List[str](topics)
-    questionTopicsDict = None
-    with open(join(question_data_folder, question_topics_file), 'rb') as fp:
-        questionTopicsDict = pickle.load(fp)
-        # print('Question Details dictionary')
-        # print(questionTopicsDict)
-
-    return questionTopicsDict
 
 
 # In[ ]:
@@ -541,7 +494,7 @@ def parseCase(leetcodeFile:         str,  # file name
 
     try :
         number      = int(re.search("\d{1,4}", leetcodeFile).group())   # Takes the first full number as the question
-        level       = questionDetailsDict[number][3][0].lower()         # number and uses that as reference
+        level       = questionDetailsDict[number].level                 # number and uses that as reference
                                                                         # e.g. 'e123 v1.py' becomes 123
     except AttributeError as ae :
         print(f'Error in parsing {leetcodeFile}: Attribute Error encountered while trying to extract question number int(...).',
@@ -557,7 +510,7 @@ def parseCase(leetcodeFile:         str,  # file name
         
 
     if number in questionDetailsDict :
-        title   = f'[{questionDetailsDict[number][0]}](<https://leetcode.com/problems/{questionDetailsDict[number][1]}>)'
+        title   = f'[{questionDetailsDict[number].title}](<https://leetcode.com/problems/{questionDetailsDict[number].slug}>)'
     else :
         title   = f'Question {number}'
     categories  = set()
@@ -764,14 +717,15 @@ def processListData(questionData: dict,
 
 def getCompletedQuestionsTopicLists(questionData: dict,
                                     *,
-                                    questionTopicsDict: dict = retrieveQuestionTopics()) -> defaultdict :
+                                    questionTopicsDict: dict = retrieveQuestionDetails()) -> defaultdict :
     
     completedTopicLists = defaultdict(set)
 
     for question in questionData.keys() :
+        # Shouldn't occur but just in case
         if question not in questionTopicsDict :
             continue
-        for topic in questionTopicsDict[question] :
+        for topic in questionTopicsDict[question].topics :
             completedTopicLists[topic].add(question)
 
     return completedTopicLists
@@ -807,7 +761,6 @@ def generate_markdown(questionNo: int,
                       questionData: dict,
                       *,
                       questionDetailsDict: dict = retrieveQuestionDetails(),
-                      questionTopicsDict: dict = retrieveQuestionTopics(),
                       export: bool = False) -> str :
     if questionNo in questionData :
         questionData = questionData[questionNo]
@@ -850,12 +803,12 @@ def generate_markdown(questionNo: int,
         f.write('\n------\n\n')
 
         BY_TOPIC_FOLDER_PATH = getenv('TOPIC_MARKDOWN_PATH_IN_MARKDOWNS_FOLDER')
-        tpcs = 'N/A' if questionNo not in questionTopicsDict or len(questionTopicsDict[questionNo]) == 0 \
-                     else ', '.join([f'[{x}](<{join(BY_TOPIC_FOLDER_PATH, x)}.md>)' for x in questionTopicsDict[questionNo]])
+        tpcs = 'N/A' if questionNo not in questionDetailsDict or len(questionDetailsDict[questionNo].topics) == 0 \
+                     else ', '.join([f'[{x}](<{join(BY_TOPIC_FOLDER_PATH, x)}.md>)' for x in questionDetailsDict[questionNo].topics])
         
         f.write(f'> **Related Topics** : **{tpcs}**\n>\n')
 
-        acrate = 'Unknown' if questionNo not in questionDetailsDict else f'{questionDetailsDict[questionNo][4]} %'
+        acrate = 'Unknown' if questionNo not in questionDetailsDict else f'{questionDetailsDict[questionNo].acRate} %'
         f.write(f'> **Acceptance Rate** : **{acrate}**\n\n')
         f.write('------\n\n')
 
@@ -901,8 +854,7 @@ def generate_markdown(questionNo: int,
 def processMarkdownGeneration(questionData: dict,
                               reprocessMarkdown: Set[int],
                               *,
-                              questionDetailsDict: dict = retrieveQuestionDetails(),
-                              questionTopicsDict: dict = retrieveQuestionTopics()) -> None :
+                              questionDetailsDict: dict = retrieveQuestionDetails()) -> None :
     
     # Create a folder to avoid errors if it doesn't already exist
     markdownFolder = join(README_PATH, MARKDOWN_PATH)
@@ -914,13 +866,11 @@ def processMarkdownGeneration(questionData: dict,
             generate_markdown(questionNo, 
                               questionData, 
                               questionDetailsDict=questionDetailsDict, 
-                              questionTopicsDict=questionTopicsDict,
                               export=True)
         else : # In order to assign the markdown paths
             generate_markdown(questionNo, 
                               questionData, 
                               questionDetailsDict=questionDetailsDict, 
-                              questionTopicsDict=questionTopicsDict,
                               export=False)
 
 
@@ -1354,7 +1304,6 @@ def main(*, recalculateAll: bool = False, noRecord: bool = False) -> None :
 
 
     questionDetailsDict     = retrieveQuestionDetails()
-    questionTopicsDict      = retrieveQuestionTopics()
 
     leetcodeFiles.sort()
     contestLeetcodeFiles.sort()
@@ -1410,8 +1359,7 @@ def main(*, recalculateAll: bool = False, noRecord: bool = False) -> None :
     print('Generating markdowns for each individual question...')
     processMarkdownGeneration(questionData=questionData, 
                               reprocessMarkdown=reprocessMarkdown, 
-                              questionDetailsDict=questionDetailsDict, 
-                              questionTopicsDict=questionTopicsDict)
+                              questionDetailsDict=questionDetailsDict)
     
     # Produces a markdown where questions are sorted by the amount of code
     # written for the question
