@@ -17,6 +17,7 @@ class questionDataclass:
         self.questionNo = questionNo
         self.acRate = acRate
         self.difficulty = difficulty
+        self.level = self.difficulty
         self.isFavor = isFavor
         self.paidOnly = paidOnly
         self.title = title
@@ -28,7 +29,8 @@ class questionDataclass:
 
 
     def __str__(self):
-        return f"questionNo: {self.questionNo}, acRate: {self.acRate}, difficulty: {self.difficulty}, isFavor: {self.isFavor}, paidOnly: {self.paidOnly}, title: {self.title}, slug: {self.slug}, url: {self.url}, topics: {self.topics}, hasSolution: {self.hasSolution}, hasVideoSolution: {self.hasVideoSolution}"
+        return f"questionNo: {self.questionNo}, acRate: {self.acRate}, difficulty: {self.difficulty}, level: {self.level}, isFavor: {self.isFavor}, paidOnly: {self.paidOnly}, title: {self.title}, slug: {self.slug}, url: {self.url}, topics: {self.topics}, hasSolution: {self.hasSolution}, hasVideoSolution: {self.hasVideoSolution}"
     
     def __repr__(self) -> str:
-        return f"questionNo: {self.questionNo}, acRate: {self.acRate}, difficulty: {self.difficulty}, isFavor: {self.isFavor}, paidOnly: {self.paidOnly}, title: {self.title}, slug: {self.slug}, url: {self.url}, topics: {self.topics}, hasSolution: {self.hasSolution}, hasVideoSolution: {self.hasVideoSolution}"
+        return f"questionNo: {self.questionNo}, acRate: {self.acRate}, difficulty: {self.difficulty}, level: {self.level}, isFavor: {self.isFavor}, paidOnly: {self.paidOnly}, title: {self.title}, slug: {self.slug}, url: {self.url}, topics: {self.topics}, hasSolution: {self.hasSolution}, hasVideoSolution: {self.hasVideoSolution}"
+    

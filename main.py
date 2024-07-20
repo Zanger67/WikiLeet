@@ -36,6 +36,8 @@ from typing import Set, Dict, List, Tuple       # misc. QOL imports
 from collections import defaultdict
 from icecream import ic                         # for debugging / outputs
 
+from questionDataclass import questionDataclass as Question
+
 # TQDM import done below to check if this is 
 # a .py or .ipynb file
 
@@ -425,9 +427,11 @@ def retrieveQuestionDetails() -> dict :
     questionDetailsDict : dict[int, details]
         A dictionary containing the question details matched to the question's assigned number
     '''
+
+    print(f'{getcwd() = }')
     
     question_data_folder = join(getenv('SUBMODULE_DATA_PATH'), getenv('LEETCODE_QUESTION_DETAILS'))
-    
+    print(f'{listdir(getenv("SUBMODULE_DATA_PATH"))}')
     print(f'Question details path: {question_data_folder = }')
 
     if not isfile(question_data_folder) :
@@ -617,11 +621,11 @@ def parseContextFiles(txtFiles: str,
     for fileName in txtFiles :
         print(f'Context file found: {fileName}')
 
-        try :    
+        try :
             if '\\' in fileName :
-                number = int(re.search("\d{1,4}", fileName[fileName.find('\\') + 1:]).group())
+                number = int(re.search("\d{1,4}", fileName[fileName.rfind('\\'):]).group())
             elif '/' in fileName :
-                number = int(re.search("\d{1,4}", fileName[fileName.find('/') + 1:]).group())
+                number = int(re.search("\d{1,4}", fileName[fileName.rfind('/'):]).group())
             else :
                 number = int(re.search("\d{1,4}", fileName).group())
         except AttributeError as ae :
@@ -810,7 +814,7 @@ def generate_markdown(questionNo: int,
         
         f.write(f'> **Related Topics** : **{tpcs}**\n>\n')
 
-        acrate = 'Unknown' if questionNo not in questionDetailsDict else f'{questionDetailsDict[questionNo].acRate} %'
+        acrate = 'Unknown' if questionNo not in questionDetailsDict else f'{round(questionDetailsDict[questionNo].acRate, 2)} %'
         f.write(f'> **Acceptance Rate** : **{acrate}**\n\n')
         f.write('------\n\n')
 
@@ -1284,7 +1288,7 @@ def exportPrimaryReadme(dfQuestions:        DataFrame,
         
         
         file.write('\n\n')
-        file.write('<p align="right">*This README was generated using [WikiLeet](<https://github.com/Zanger67/WikiLeet>)*</p>\n')
+        file.write('<p align="right"><i>This README was generated using <a href="https://github.com/Zanger67/WikiLeet">WikiLeet</a></i></p>\n')
 
 
 # In[ ]:
@@ -1306,6 +1310,7 @@ def main(*, recalculateAll: bool = False, noRecord: bool = False) -> None :
 
 
     questionDetailsDict     = retrieveQuestionDetails()
+    print(questionDetailsDict)
 
     leetcodeFiles.sort()
     contestLeetcodeFiles.sort()

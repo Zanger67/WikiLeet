@@ -34,12 +34,14 @@ runs:
       run: |
         if [ -d .readme_updater/ ]; then
             echo "Submodule exists."
-            git submodule update --recursive --remote
         else
             echo "Submodule not found. Adding..."
             git submodule add https://github.com/Zanger67/Leetcode-Progress-Tracker.git '.readme_updater'
-            git submodule update --init --recursive
         fi
+
+        echo "Initializing and updating submodules..."
+        git submodule update --init --recursive
+        git submodule update --recursive --remote
 
         cd .readme_updater
 
@@ -50,10 +52,13 @@ runs:
         # Make sure current branch is the main live branch
         git fetch origin main
         git checkout main
-        
+
+        echo "Initializing and updating submodules in case checkout resulted in uninitializations..."
+        git submodule update --init --recursive
+        git submodule update --recursive --remote
         cd ../
 
-        tree
+        tree -d
 
 
 
