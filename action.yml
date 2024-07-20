@@ -1,6 +1,10 @@
-name: 'LeetCode Markdown Generation'
-description: 'Automatically parses LeetCode submissions and updates the markdown files in the repository'
+name: 'WikiLeet'
+description: 'Automatically parse your LeetCode submissions and generate a navigatable wiki of your solutions'
 author: 'Zanger67'
+
+branding:
+  icon: "book-open"
+  color: "yellow"
 
 inputs: 
   username:
