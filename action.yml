@@ -57,11 +57,11 @@ runs:
     - name: Ensure my-submissions directory exists
       shell: bash
       run: |
-        if [ -d .my-submissions/ ]; then
+        if [ -d my-submissions/ ]; then
             echo "my-submissions directory found"
         else
             echo "my-submissions directory not found. Creating..."
-            mkdir my-submissions
+            mkdir "my-submissions"
         fi
 
         cd .readme_updater
