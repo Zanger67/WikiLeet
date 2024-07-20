@@ -59,12 +59,12 @@ from functools import cache                     # for redundancy protection
 
 
 # loading env variables
+print('Default .env loaded from script directory (.readme_updater/)')
+load_dotenv(find_dotenv(), override=True)
+
 if '.env' in listdir('../') :
-    print('.env found in ../ directory')
+    print('.env found in ../ directory. Overriding default .env...')
     load_dotenv(find_dotenv('../.env'), override=True)
-else :
-    print('Default .env used from script directory (.readme_updater/)')
-    load_dotenv(find_dotenv(), override=True)
 
 # NOTE: if the script is being run from a jupyter notebook, then it should
 # already be in the correct directory.
@@ -1330,6 +1330,10 @@ def exportPrimaryReadme(dfQuestions:        DataFrame,
 
         file.write('## Questions\n')
         file.write(dfQuestions.to_markdown(index=False))
+        
+        
+        file.write('\n\n')
+        file.write('<p align="right">*This README was generated using [WikiLeet](<https://github.com/Zanger67/Wikileet>).*</p>')
 
 
 # In[ ]:
