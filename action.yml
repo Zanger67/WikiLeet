@@ -53,6 +53,8 @@ runs:
         
         cd ../
 
+        tree
+
 
 
     - name: Ensure my-submissions directory exists
