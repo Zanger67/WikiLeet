@@ -1,3 +1,6 @@
+# No longer necessary since task has been relegated to submodule to prevent abundant
+# commits to this repo
+
 # name: '[Updating LeetCode question data]'
 
 # on:

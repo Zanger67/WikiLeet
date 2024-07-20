@@ -54,6 +54,28 @@ runs:
         
         cd ../
 
+    - name: Ensure my-submissions directory exists
+      shell: bash
+      run: |
+        if [ -d .my-submissions/ ]; then
+            echo "my-submissions directory found"
+        else
+            echo "my-submissions directory not found. Creating..."
+            mkdir my-submissions
+        fi
+
+        cd .readme_updater
+
+        # Present for testing branch -- unused
+        git fetch origin testing2
+        git checkout testing2
+
+        # # Make sure current branch is the main live branch
+        # git fetch origin main
+        # git checkout main
+        
+        cd ../
+
 
     - name: Setup python 3.10
       uses: actions/setup-python@v4
