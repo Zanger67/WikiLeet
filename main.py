@@ -1329,6 +1329,10 @@ def exportPrimaryReadme(dfQuestions:        DataFrame,
 
         file.write('## Questions\n')
         file.write(dfQuestions.to_markdown(index=False))
+        
+        
+        file.write('\n\n')
+        file.write('<p align="right">*This README was generated using [WikiLeet](<https://github.com/Zanger67/WikiLeet>)*</p>\n')
 
 
 # In[ ]:
