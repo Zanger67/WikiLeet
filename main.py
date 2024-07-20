@@ -427,6 +427,8 @@ def retrieveQuestionDetails() -> dict :
     '''
     
     question_data_folder = join(getenv('SUBMODULE_DATA_PATH'), getenv('LEETCODE_QUESTION_DETAILS'))
+    
+    print(f'Question details path: {question_data_folder = }')
 
     if not isfile(question_data_folder) :
         print('\nError in parsing official question data. leetcode.pkl not found. Exiting...')
