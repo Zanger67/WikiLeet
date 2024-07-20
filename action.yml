@@ -9,11 +9,6 @@ inputs:
       'Default: Zanger'
     default: 'Zanger'
 
-
-# secrets:
-#   PAT:
-#     required: true
-
 runs:
   using: 'composite'
   # runs-on: ubuntu-latest
@@ -29,7 +24,6 @@ runs:
 
           # Markdown generator is found in submodule
           submodules: "true"
-          # token: ${{ secrets.PAT }}
 
 
     - name: Pull current version of markdown generator | Cloning if not present 
