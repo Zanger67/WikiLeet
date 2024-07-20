@@ -6,6 +6,54 @@ WikiLeet is a program that takes your local LeetCode submissions and organizes t
 
 Using GitHub actions, it will run everytime you commit a new submission to your linked repo, updating all the markdown links in the process. 
 
+
+## Setup
+
+1. In your repo on github.com, click on `Actions` and ensure that actions are enabled for this repo. Then in your repo create a folder 
+2. Create a `.github/workflows/` folder/directory in your repo.
+```
+./project root
+└── .github
+    └── workflows
+```
+3. Create a `main.yml` file in this folder
+```
+./project root
+└── .github
+    └── workflows
+        └── main.yml
+```
+4. Paste the following code into the file. Make sure to insert your own LeetCode username!
+
+```yml
+name: '[Updating markdown files]'
+
+on:
+    # Allows for munual runs of workflow
+    workflow_dispatch:
+
+    # Default whenever a new code file is pushed to the main branch
+    push:
+        branches:
+            - main
+        paths:
+            - 'my-submissions/**'
+
+permissions:
+    contents: write
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        
+        steps:
+            - name: Call and run markdown generator
+              uses: Zanger67/WikiLeet@main
+              with:
+                # Insert your LeetCode username here!
+                username: Zanger
+```
+
 <!-- Insert gif of it running and creating all the markdowns -->
 
 ## Additional Features
@@ -33,23 +81,9 @@ Using GitHub actions, it will run everytime you commit a new submission to your 
   - If ran manually, this can be done using the file creation and modification dates.
   - Warning: parsing the git commit history of each file is **slow** when done locally it seems but on GitHub actions, it's relatively fast. I'm not sure why this is, but to run locally look at the `flag` instructions for `-n` and `-g` in the [main.py](main.py) file's `main()`.
 
-## How to Use
-
-### Automatic GitHub Action (Recommended)
-There are two straightforward options:
-
-1. Fork [this template repo](https://github.com/Zanger67/leetcode-template/tree/main).
-
-***or***
-
-2. Add [generate-markdowns.yml](generate-markdowns.yml) as a GitHub action in any repository that contains a directory called `my-submissions`.
-
-**Make sure to add your GitHub PAT with repository read/write permissions as a repository secret under the name `PAT` for this to work. See [here](pat_setup.md) for help with PAT setup.**
-
-**Update the default .env with your LeetCode username.**
 
 ### Running Locally
-The program can be ran locally once imported as a submodule.
+The program can be ran locally once imported as a submodule via running `main.py` or `main.ipynb`.
 
 <!-- Insert instructions for submodule import and the run instructions -->
 
