@@ -59,12 +59,11 @@ from functools import cache                     # for redundancy protection
 
 
 # loading env variables
+print('Default .env activated from script directory (.readme_updater/)')
+load_dotenv(find_dotenv(), override=True)
 if '.env' in listdir('../') :
-    print('.env found in ../ directory')
+    print('.env found in ../ directory. Overriding default...')
     load_dotenv(find_dotenv('../.env'), override=True)
-else :
-    print('Default .env used from script directory (.readme_updater/)')
-    load_dotenv(find_dotenv(), override=True)
 
 # NOTE: if the script is being run from a jupyter notebook, then it should
 # already be in the correct directory.
