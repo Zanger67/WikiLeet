@@ -1498,11 +1498,18 @@ if __name__ == '__main__' :
                             help="Use Git repo's dates for determining if a file has been modified and created (WARNING SLOW)", 
                             required=False, 
                             action=argparse.BooleanOptionalAction)
+
+        parser.add_argument('-user', type=str, default='', required=False, help='LeetCode Username')
+        if parser.parse_args().user :
+            environ['LEETCODE_USERNAME'] = parser.parse_args().user
+        
         
         recalcaulateAll = parser.parse_args().r
         noRecord = parser.parse_args().norecord or parser.parse_args().n
 
         USE_GIT_DATES = parser.parse_args().g
+        
+        
 
     README_ABS_DIR = README_ABS_DIR[:README_ABS_DIR.rindex('/')]
     print(README_ABS_DIR, '\n')
