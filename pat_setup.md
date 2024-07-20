@@ -1,0 +1,16 @@
+# How to add your Personal Access Token (PAT)
+
+A Personal Access Token gives the program permission to read and write into the repository you specify which is neccessary to commit the markdown files.
+
+`Fine-grained tokens` are access tokens that we can restrict to only allow access to the specific repo you'll be uploading your files, though a general PAT will also function (though not recommended).
+
+| Setup                                                                                                                                                                                                                                | Visual                                                                                                           |
+| :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------- |
+| Navigate on github.com to `Settings > Developer Settings > Personal Access Tokens > Fine-Grained Tokens`.</br></br>This can be found at [https://github.com/settings/tokens?type=beta](https://github.com/settings/tokens?type=beta) | ![alt text](misc/pat_setup_images/image.png?raw=true)                                                            |
+| Fill out the form.</br></br>Note that the expiration date has a latest date of 1 year from the creation date.                                                                                                                        | ![alt text](misc/pat_setup_images/image-5.png?raw=true)                                                          |
+| Select `Only Selected Repositories` and make sure to select the repo you'll be uploading your solutions to.</br></br>This makes it the token can only write to this specific repo and no others of your account.                     | ![alt text](misc/pat_setup_images/image-7.png?raw=true)                                                          |
+| Give `Access: Read and Write` permission for **`Contents`** then click generate at the bottom.                                                                                                                                       | ![alt text](misc/pat_setup_images/image-8.png?raw=true)                                                          |
+| Take the newly generated PAT and in your repo, click `Settings > Secrets and Variables > Actions`</br></br>This can also be found at:</br>`https://github.com/[YOUR USERNAME]/[REPO NAME]/settings/secrets/actions`                  | ![alt text](misc/pat_setup_images/image-9.png?raw=true) ![alt text](misc/pat_setup_images/image-10.png?raw=true) |
+| Click `New repository secret` and paste in your token with the name `PAT`                                                                                                                                                            | ![alt text](misc/pat_setup_images/image-11.png?raw=true)                                                         |
+
+After that, you should be all set!
