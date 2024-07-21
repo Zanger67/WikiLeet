@@ -518,7 +518,6 @@ def parseCase(leetcodeFile:         str,  # file name
         else :
             print(f'Level not found. Defaulting to "Unknown"')
             level = 'Unknown'
-        return False
 
     creationtime, modificationtime = getCtimeMtimes(join(README_PATH, path))
 
