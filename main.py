@@ -502,10 +502,22 @@ def parseCase(leetcodeFile:         str,  # file name
         number      = int(re.search("\d{1,4}", leetcodeFile).group())   # Takes the first full number as the question
         level       = questionDetailsDict[number].level                 # number and uses that as reference
                                                                         # e.g. 'e123 v1.py' becomes 123
-    except AttributeError as ae :
-        print(f'Error in parsing {leetcodeFile}: Attribute Error encountered while trying to extract question number int(...).',
+    except (AttributeError) as ae :
+        print(f'Error in parsing {leetcodeFile}: {ae.name} encountered while trying to extract question number int(...).',
                 '\nparseCase(...)',
                 '\nSkipping')
+        return False
+    except (KeyError) as ke :
+        print(f'Error in parsing {leetcodeFile}: {ke} encountered while trying to extract question level from questionDetailsDict.',
+                '\nparseCase(...)',
+                '\nAttempting to pull from the name...')
+        level = leetcodeFile[0].lower()
+        
+        if level in ['e', 'm', 'h'] :
+            print(f'Level found: {level}')
+        else :
+            print(f'Level not found. Defaulting to "Unknown"')
+            level = 'Unknown'
         return False
 
     creationtime, modificationtime = getCtimeMtimes(join(README_PATH, path))
