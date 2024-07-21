@@ -320,14 +320,15 @@ def addCase(level:              str,
     if not categories :
         categories = set()
 
-    if 'e' in level.lower() :
-        level = 'Easy'
-    elif 'm' in level.lower() : 
-        level = 'Medium'
-    elif 'h' in level.lower() :
-        level = 'Hard'
-    else :
-        level = 'Unknown'
+    match level[0].lower() :
+        case 'e' :
+            level = 'Easy'
+        case 'm' : 
+            level = 'Medium'
+        case 'h' :
+            level = 'Hard'
+        case _ :
+            level = 'Unknown'
 
     output = {
                 'level':                level,
@@ -570,6 +571,12 @@ def parseCase(leetcodeFile:         str,  # file name
                                    contestTitle=contest,
                                    contestQNo=contestQNo,
                                    fileLatestTimes=fileLatestTimes)
+    
+    if number >= 3220 :
+        print(f'{questionData[number] = }')
+        print(f'{path = }')
+        print(questionDetailsDict[number])
+    
     return True
 
 
@@ -630,7 +637,7 @@ def parseContextFiles(txtFiles: str,
                       fileLatestTimes: dict, 
                       reprocessMarkdown: Set[int]) -> None:
     for fileName in txtFiles :
-        print(f'Context file found: {fileName}')
+        # print(f'Context file found: {fileName}')
 
         try :
             if '\\' in fileName :
