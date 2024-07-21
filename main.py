@@ -456,6 +456,9 @@ def updateQuestion(orig:               dict,
 # In[ ]:
 
 
+QUESTION_DATA_FOLDER = join(getenv('SUBMODULE_DATA_PATH'), getenv('LEETCODE_QUESTION_DETAILS'))
+SUBMODULE_DATA_PATH = getenv('SUBMODULE_DATA_PATH')
+
 @cache
 def retrieveQuestionDetails() -> dict :
     '''
@@ -469,11 +472,10 @@ def retrieveQuestionDetails() -> dict :
 
     print(f'{getcwd() = }')
     
-    question_data_folder = join(getenv('SUBMODULE_DATA_PATH'), getenv('LEETCODE_QUESTION_DETAILS'))
-    print(f'{listdir(getenv("SUBMODULE_DATA_PATH"))}')
-    print(f'Question details path: {question_data_folder = }')
+    print(f'{listdir(SUBMODULE_DATA_PATH)}')
+    print(f'Question details path: {QUESTION_DATA_FOLDER = }')
 
-    if not isfile(question_data_folder) :
+    if not isfile(QUESTION_DATA_FOLDER) :
         print('\nError in parsing official question data. leetcode.pkl not found. Exiting...')
         print()
         exit()
@@ -482,7 +484,7 @@ def retrieveQuestionDetails() -> dict :
 
 
     # schema: key=int(questionNumber)   val=(title, titleSlug, paidOnly, difficulty, acRate)
-    with open(join(question_data_folder), 'rb') as fp:
+    with open(join(QUESTION_DATA_FOLDER), 'rb') as fp:
         questionDetailsDict = pickle.load(fp)
 
     return questionDetailsDict
@@ -491,12 +493,16 @@ def retrieveQuestionDetails() -> dict :
 # In[ ]:
 
 
+HISTORY_PATH = join(getenv('USER_DATA_PATH'), getenv('FILE_MODIFICATION_NAME'))
+
+
+# In[ ]:
+
+
 def writeRecentFileTimes(fileLatestTimes: dict) -> bool :
     '''Pickles the newly found most recent modification times of each question for reference in future runs'''
     
-    history_path = join(getenv('USER_DATA_PATH'), getenv('FILE_MODIFICATION_NAME'))
-
-    with open(history_path, 'wb') as fp:
+    with open(HISTORY_PATH, 'wb') as fp:
         pickle.dump(fileLatestTimes, fp)
 
     return True
@@ -507,11 +513,9 @@ def writeRecentFileTimes(fileLatestTimes: dict) -> bool :
 
 def getRecentFileTimes() -> dict :
     '''Retrieves the pickled data from previous cases of `writeRecentFileTimes()`'''
-    
-    history_path = join(getenv('USER_DATA_PATH'), getenv('FILE_MODIFICATION_NAME'))
 
-    if isfile(history_path) :
-        with open(history_path, 'rb') as fp:
+    if isfile(HISTORY_PATH) :
+        with open(HISTORY_PATH, 'rb') as fp:
             return pickle.load(fp)
         
     return {}
@@ -809,6 +813,8 @@ QUESTION_DETAILS_FILE        = getenv('LEETCODE_QUESTION_DETAILS')
 import json
 with open('question_data/language_equivs.json') as f :
     LANGUAGE_EQUIVS = json.load(f)
+    
+BY_TOPIC_FOLDER_PATH = getenv('TOPIC_MARKDOWN_PATH_IN_MARKDOWNS_FOLDER')
 
 
 # In[ ]:
@@ -861,7 +867,6 @@ def generate_markdown(questionNo: int,
 
         f.write('\n------\n\n')
 
-        BY_TOPIC_FOLDER_PATH = getenv('TOPIC_MARKDOWN_PATH_IN_MARKDOWNS_FOLDER')
         tpcs = 'N/A' if questionNo not in questionDetailsDict or len(questionDetailsDict[questionNo].topics) == 0 \
                      else ', '.join([f'[{x}](<{join(BY_TOPIC_FOLDER_PATH, x)}.md>)' for x in questionDetailsDict[questionNo].topics])
         
@@ -1075,7 +1080,8 @@ def questionTopicDataframes(questionData: dict,
                        convertQuestionDataToDataframe(questionData,
                                                       includeDate=True,
                                                       includeQuestions=qs,
-                                                      relativeFolderAdjustment=-getenv('TOPIC_MARKDOWN_PATH_IN_MARKDOWNS_FOLDER').count('/'))))
+                                                      relativeFolderAdjustment= \
+                                                        -getenv('TOPIC_MARKDOWN_PATH_IN_MARKDOWNS_FOLDER').count('/'))))
         
     output.sort(key=lambda x: x[1], reverse=True)
     return output
@@ -1085,6 +1091,13 @@ def questionTopicDataframes(questionData: dict,
 
 
 TOPIC_FOLDER = getenv('TOPIC_MARKDOWN_PATH_IN_MARKDOWNS_FOLDER')
+
+# For each topic case
+NOTEBOOK_PATH = join(README_PATH, MARKDOWN_PATH, TOPIC_FOLDER)
+
+# For the overal hosting markdown
+OVERALL_FILE_NOTEBOOK_PATH = join(README_PATH, MARKDOWN_PATH, 'Topics.md')
+OVERALL_FILE_README_PATH   = join(MARKDOWN_PATH, 'Topics.md')
 
 def topicBasedMarkdowns(questionData: dict,
                          *,
@@ -1096,13 +1109,6 @@ def topicBasedMarkdowns(questionData: dict,
         topicGroupings = getCompletedQuestionsTopicLists(questionData)
 
     topicDataframes = questionTopicDataframes(questionData=questionData, topicGroupings=topicGroupings)
-
-    # For each topic case
-    NOTEBOOK_PATH = join(README_PATH, MARKDOWN_PATH, TOPIC_FOLDER)
-
-    # For the overal hosting markdown
-    OVERALL_FILE_NOTEBOOK_PATH = join(README_PATH, MARKDOWN_PATH, 'Topics.md')
-    OVERALL_FILE_README_PATH   = join(MARKDOWN_PATH, 'Topics.md')
 
     if not isdir(NOTEBOOK_PATH) :
         mkdir(NOTEBOOK_PATH)
@@ -1520,8 +1526,8 @@ if __name__ == '__main__' :
         
         
 
-    README_ABS_DIR = README_ABS_DIR[:README_ABS_DIR.rindex('/')]
-    print(README_ABS_DIR, '\n')
+    # README_ABS_DIR = README_ABS_DIR[:README_ABS_DIR.rindex('/')]
+    # print(README_ABS_DIR, '\n')
 
     print('No record'.ljust(20), 'on' if noRecord else 'off')
     print('Recalculate'.ljust(20), 'on' if recalcaulateAll else 'off')
