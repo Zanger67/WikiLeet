@@ -1,11 +1,25 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+# Data management imports
+
 # In[ ]:
 
 
 import pandas as kungfupanda                    # pandas for data manipulation and markdown
 from pandas import DataFrame                    # export
+
+import argparse                                 # For command line arguments when calling py script with flags
+import pickle                                   # for saving/loading json records and file 
+                                                # modification date history
+
+from questionDataclass import questionDataclass as Question
+
+
+# OS and directory management imports
+
+# In[ ]:
+
 
 from os import listdir                          # for file retrieval and path calculations
 from os.path import isfile, join
@@ -23,31 +37,39 @@ import sys                                      # location rather than the calli
                                                 # e.g. if you call `python someFolder/main.py`
                                                 #      then it will still work.
 
-import subprocess
+
+# Environment variable imports + file log and creation time imports
+
+# In[ ]:
+
+
+from os import getenv, environ                  # for environment variables
+from dotenv import load_dotenv, find_dotenv     # for config purposes (.env file)
+
+import subprocess                               # tracing git log history for ctimes and mtimes
+
+
+# In[ ]:
+
 
 from os.path import getmtime, getctime          # retreiving file creation/modification times
 from datetime import datetime
 import time
 
-from os import getenv, environ                  # for environment variables
-from dotenv import load_dotenv, find_dotenv     # for config purposes (.env file)
+
+# QOL and anti-reundancy imports
+
+# In[ ]:
+
 
 from typing import Set, Dict, List, Tuple       # misc. QOL imports
 from collections import defaultdict
 from icecream import ic                         # for debugging / outputs
 
-from questionDataclass import questionDataclass as Question
-
-# TQDM import done below to check if this is 
-# a .py or .ipynb file
-
 import re                                       # for regex file name matching / question number matching
-
-import argparse                                 # For command line arguments when calling py script with flags
-import pickle                                   # for saving/loading json records and file 
-                                                # modification date history
-
 from functools import cache                     # for redundancy protection
+
+# TQDM import done separately below after checking if this is a .py or .ipynb file
 
 
 # # Script Configuration
@@ -63,9 +85,14 @@ from functools import cache                     # for redundancy protection
 # loading env variables
 print('Default .env activated from script directory (.readme_updater/)')
 load_dotenv(find_dotenv(), override=True)
+
 if '.env' in listdir('../') :
     print('.env found in ../ directory. Overriding default...')
     load_dotenv(find_dotenv('../.env'), override=True)
+
+
+# In[ ]:
+
 
 # NOTE: if the script is being run from a jupyter notebook, then it should
 # already be in the correct directory.
@@ -81,17 +108,28 @@ except NameError:
     print('NameError')
     pass
 
+
+# In[ ]:
+
+
+# TQDM import based off if current running script is a jupyter notebook
+# or a python script
+
 if IS_NOTEBOOK :
-    import tqdm.notebook as tqdm
+    from tqdm.notebook import tqdm
 else :
     from tqdm import tqdm
 
 
+# In[ ]:
+
+
 # README_ABS_DIR will get confirmed in if name==main prior to running
-README_ABS_DIR = getcwd().replace('\\', '/')
-NOTEBOOK_ABS_DIR = README_ABS_DIR
+README_ABS_DIR      = getcwd().replace('\\', '/')
+NOTEBOOK_ABS_DIR    = README_ABS_DIR
+MAIN_DIRECTORY      = NOTEBOOK_ABS_DIR[NOTEBOOK_ABS_DIR.rfind('/')+1:]
+
 print(f'{NOTEBOOK_ABS_DIR = }')
-MAIN_DIRECTORY = NOTEBOOK_ABS_DIR[NOTEBOOK_ABS_DIR.rfind('/')+1:]
 
 
 # In[ ]:
@@ -520,6 +558,7 @@ def parseCase(leetcodeFile:         str,  # file name
             print(f'Level not found. Defaulting to "Unknown"')
             level = 'Unknown'
 
+
     creationtime, modificationtime = getCtimeMtimes(join(README_PATH, path))
 
     if path not in fileLatestTimes or max(creationtime, modificationtime) > fileLatestTimes[path] :
@@ -534,8 +573,10 @@ def parseCase(leetcodeFile:         str,  # file name
     categories  = set()
     language    = leetcodeFile[leetcodeFile.rfind('.') + 1:]
 
+
     if len(altTitle) > 0 :
         title = altTitle + ' - ' + title
+
 
     # Question is from a contest folder
     if contest :
@@ -559,24 +600,17 @@ def parseCase(leetcodeFile:         str,  # file name
                                               contestTitle=contest,
                                               contestQNo=contestQNo,
                                               fileLatestTimes=fileLatestTimes)
-        return True
-    
-    questionData[number] = addCase(level=level, 
-                                   number=number, 
-                                   title=title,
-                                   categories=categories, 
-                                   language=language, 
-                                   notebook_path=join(README_PATH, path), 
-                                   readme_path=path,
-                                   contestTitle=contest,
-                                   contestQNo=contestQNo,
-                                   fileLatestTimes=fileLatestTimes)
-    
-    if number >= 3220 :
-        print(f'{questionData[number] = }')
-        print(f'{path = }')
-        print(questionDetailsDict[number])
-    
+    else :
+        questionData[number] = addCase(level=level, 
+                                       number=number, 
+                                       title=title,
+                                       categories=categories, 
+                                       language=language, 
+                                       notebook_path=join(README_PATH, path), 
+                                       readme_path=path,
+                                       contestTitle=contest,
+                                       contestQNo=contestQNo,
+                                       fileLatestTimes=fileLatestTimes)
     return True
 
 
@@ -699,7 +733,7 @@ def getLists() -> List[str] :
 '''
 
 @cache
-def getList(fileName, filePath) -> set[int] :
+def getList(fileName, filePath) -> Set[int] :
     output = set() # can change to dict later if we want to output category info
 
     count = 0
@@ -786,6 +820,7 @@ def generate_markdown(questionNo: int,
                       *,
                       questionDetailsDict: dict = retrieveQuestionDetails(),
                       export: bool = False) -> str :
+    
     if questionNo in questionData :
         questionData = questionData[questionNo]
 
@@ -980,6 +1015,7 @@ def convertQuestionDataToDataframe(questionData: dict,
                                    includeQuestions: set[int] = set(),
                                    relativeFolderAdjustment: int = 0,
                                    includeMarkdownFolder: bool = False) -> DataFrame :
+    
     questionData = convertDataToMatrix(questionData, 
                                        sortBy=sortBy, 
                                        includeDate=includeDate, 
@@ -990,7 +1026,7 @@ def convertQuestionDataToDataframe(questionData: dict,
     # Protects against empty cases (e.g. if you have no daily files)
     dfQuestions = kungfupanda.DataFrame()
     if questionData :
-        dfQuestions   = kungfupanda.DataFrame(data=questionData, columns=COLUMNS[:len(questionData[0])])
+        dfQuestions = kungfupanda.DataFrame(data=questionData, columns=COLUMNS[:len(questionData[0])])
     
     # dfQuestions   = dfQuestions.astype(TYPE_CLARIFICATION[:len(questionData[0])])
 
@@ -1066,7 +1102,7 @@ def topicBasedMarkdowns(questionData: dict,
 
     # For the overal hosting markdown
     OVERALL_FILE_NOTEBOOK_PATH = join(README_PATH, MARKDOWN_PATH, 'Topics.md')
-    OVERALL_FILE_README_PATH = join(MARKDOWN_PATH, 'Topics.md')
+    OVERALL_FILE_README_PATH   = join(MARKDOWN_PATH, 'Topics.md')
 
     if not isdir(NOTEBOOK_PATH) :
         mkdir(NOTEBOOK_PATH)
@@ -1126,13 +1162,13 @@ def generateDifficultyLevelMarkdowns(questionData: dict) -> Tuple[Tuple[int, str
     
     easyMarkdown    = convertQuestionDataToDataframe(easyQuestions, 
                                                      includeDate=True, 
-                                                     includeMarkdownFolder=True)
+                                                     includeMarkdownFolder=False)
     mediumMarkdown  = convertQuestionDataToDataframe(mediumQuestions, 
                                                      includeDate=True, 
-                                                     includeMarkdownFolder=True)
+                                                     includeMarkdownFolder=False)
     hardMarkdown    = convertQuestionDataToDataframe(hardQuestions, 
                                                      includeDate=True, 
-                                                     includeMarkdownFolder=True)
+                                                     includeMarkdownFolder=False)
     
     
     easy_path   = join(DIFFICULTY_MARKDOWNS_PATH, 'Easy.md')
@@ -1176,6 +1212,7 @@ def miscMarkdownGenerations(questionData:   dict,
                             code_length:    bool = False,
                             recent:         bool = False,
                             daily:          bool = False) -> str : # output path
+    
     df = None
     fileName = None
     header_data = None
