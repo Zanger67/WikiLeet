@@ -43,22 +43,20 @@ runs:
         git submodule update --init --recursive
         git submodule update --recursive --remote
 
-        cd .readme_updater
+        # cd .readme_updater
 
         # # Present for testing branch -- unused
         # git fetch origin testing2
         # git checkout testing2
 
-        # Make sure current branch is the main live branch
-        git fetch origin main
-        git checkout main
+        # # Make sure current branch is the main live branch
+        # git fetch origin main
+        # git checkout main
 
-        echo "Initializing and updating submodules in case checkout resulted in uninitializations..."
-        git submodule update --init --recursive
-        git submodule update --recursive --remote
-        cd ../
-
-        tree -d
+        # echo "Initializing and updating submodules in case checkout resulted in uninitializations..."
+        # git submodule update --init --recursive
+        # git submodule update --recursive --remote
+        # cd ../
 
 
 
