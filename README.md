@@ -150,6 +150,9 @@ _View of the actual markdown before being rendered_
 
 _View of my stats spreadsheet that I used to track my progress_
 ![Stats from Excel Example](misc/image-3.png?raw=true) -->
+## Characteristics to be Aware of
+- In each new week, you may have a case where it shows a case of `+[# of questions solved] lines` `-[# of questions solved] lines`. This is likely the due to the AC rates being updated for the week.
+- Occasionally, a lot of lines may be updated on the generalized files (`README.md`, `Mediums.md`, `Arrays.md`, etc.). If the question you add increases the width of a markdown file, it'll update the whole table width to match causing this. For instance, if my `Languages` column is usually just `py, java` but then for the first time I have a 3rd language for `py, java, js`, it'll udpate the column width so it "seems" like a lot of lines.
 
 
 ## Future Additions Planned
