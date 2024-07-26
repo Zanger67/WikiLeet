@@ -45,17 +45,17 @@ runs:
 
         # cd .readme_updater
 
-        # # Present for testing branch -- unused
-        # git fetch origin testing2
-        # git checkout testing2
+        # Present for testing branch -- unused
+        git fetch origin daily-by-official-dates
+        git checkout daily-by-official-dates
 
         # # Make sure current branch is the main live branch
         # git fetch origin main
         # git checkout main
 
-        # echo "Initializing and updating submodules in case checkout resulted in uninitializations..."
-        # git submodule update --init --recursive
-        # git submodule update --recursive --remote
+        echo "Initializing and updating submodules in case checkout resulted in uninitializations..."
+        git submodule update --init --recursive
+        git submodule update --recursive --remote
         # cd ../
 
 
