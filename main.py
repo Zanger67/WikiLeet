@@ -3,7 +3,7 @@
 
 # Data management imports
 
-# In[ ]:
+# In[25]:
 
 
 import pandas as kungfupanda                    # pandas for data manipulation and markdown
@@ -12,13 +12,14 @@ from pandas import DataFrame                    # export
 import argparse                                 # For command line arguments when calling py script with flags
 import pickle                                   # for saving/loading json records and file 
                                                 # modification date history
+import json
 
 from questionDataclass import questionDataclass as Question
 
 
 # OS and directory management imports
 
-# In[ ]:
+# In[3]:
 
 
 from os import listdir                          # for file retrieval and path calculations
@@ -40,7 +41,7 @@ import sys                                      # location rather than the calli
 
 # Environment variable imports + file log and creation time imports
 
-# In[ ]:
+# In[4]:
 
 
 from os import getenv, environ                  # for environment variables
@@ -49,17 +50,17 @@ from dotenv import load_dotenv, find_dotenv     # for config purposes (.env file
 import subprocess                               # tracing git log history for ctimes and mtimes
 
 
-# In[ ]:
+# In[37]:
 
 
 from os.path import getmtime, getctime          # retreiving file creation/modification times
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 
 
 # QOL and anti-reundancy imports
 
-# In[ ]:
+# In[6]:
 
 
 from typing import Set, Dict, List, Tuple       # misc. QOL imports
@@ -79,7 +80,7 @@ from functools import cache                     # for redundancy protection
 #     2. If failure, use the `.env` found in the current script directory (in the updater).
 # 2. If is a script run, denotes it as such for script flag references and ensures working directory is the script's location rather than the calling directory.
 
-# In[ ]:
+# In[17]:
 
 
 # loading env variables
@@ -91,7 +92,7 @@ if '.env' in listdir('../') :
     load_dotenv(find_dotenv('../.env'), override=True)
 
 
-# In[ ]:
+# In[18]:
 
 
 # NOTE: if the script is being run from a jupyter notebook, then it should
@@ -109,7 +110,7 @@ except NameError:
     pass
 
 
-# In[ ]:
+# In[19]:
 
 
 # TQDM import based off if current running script is a jupyter notebook
@@ -123,7 +124,7 @@ else :
     from tqdm import tqdm
 
 
-# In[ ]:
+# In[20]:
 
 
 # README_ABS_DIR will get confirmed in if name==main prior to running
@@ -134,7 +135,7 @@ MAIN_DIRECTORY      = NOTEBOOK_ABS_DIR[NOTEBOOK_ABS_DIR.rfind('/')+1:]
 print(f'{NOTEBOOK_ABS_DIR = }')
 
 
-# In[ ]:
+# In[21]:
 
 
 README_PATH                 = getenv('README_PATH')
@@ -148,11 +149,12 @@ LEETCODE_PATH_REFERENCE     = join(README_PATH, LEETCODE_PATH_FROM_README)
 # 
 # UpdateLanguage $\rightarrow$ if a question already has a solution, this is called instead to insert the new file link to the existing row details.
 
-# In[ ]:
+# In[12]:
 
 
 # Categories besides those in lists
 PRIMARY_CATEGORIES = set(['Daily', 'Weekly Premium', 'Contest', 'Favourite'])
+_OLDEST_DATE = datetime.now()
 
 
 # In[ ]:
@@ -166,7 +168,7 @@ def individualCTimeViaGit(cmd: List[str]) -> Tuple[datetime, datetime] :
                                stderr=subprocess.PIPE)
     result = process.stdout.readlines()
     modifiedTimes = []
-
+    
     if len(result) >= 1:
         for line in result:
             modifiedTimes.append(line.decode("utf-8").replace('\n', ''))
@@ -178,6 +180,11 @@ def individualCTimeViaGit(cmd: List[str]) -> Tuple[datetime, datetime] :
     try :
         creationDate = datetime.strptime(time.ctime(int(modifiedTimes[0])), '%a %b %d %H:%M:%S %Y')
         modifiedDate = datetime.strptime(time.ctime(int(modifiedTimes[-1])), '%a %b %d %H:%M:%S %Y')
+        
+        global _OLDEST_DATE
+        if creationDate <_OLDEST_DATE:
+            _OLDEST_DATE = creationDate.replace(hour=0, minute=0, second=0, microsecond=0)
+
     except ValueError as ve:
         print(f'Error in parsing {path}')
         print(f'{modifiedTimes}')
@@ -524,6 +531,129 @@ def getRecentFileTimes() -> dict :
     return {}
 
 
+# # Daily and Weekly Challenges
+
+# In[22]:
+
+
+DAILIES_DATA_PATH = join(getenv('SUBMODULE_DATA_PATH'), getenv('DAILIES_FOLDER'), getenv('DAILIES_FILE'))
+WEEKLIES_DATA_PATH = join(getenv('SUBMODULE_DATA_PATH'), getenv('DAILIES_FOLDER'), getenv('WEEKLIES_FILE'))
+
+
+# In[32]:
+
+
+def getDailies(firstDate: datetime = _OLDEST_DATE) -> List[Tuple[datetime, int]] :
+    '''
+    Retrieves the daily questions from the official LeetCode json data
+    and returns them as a set of strings
+
+    ### Returns :
+    dailies : List[Tuple[date, questionNo]]
+    '''
+    
+    with open(DAILIES_DATA_PATH, 'rb') as fp:
+        dailies = json.load(fp)
+    
+    output = []
+
+    for k in list(dailies.keys()) :
+        newK = datetime.strptime(k, '%Y-%m-%d')
+        if newK < firstDate :
+            continue
+
+        output.append((newK, int(dailies[k]['question']['questionFrontendId'])))
+
+    return sorted(output, key=lambda x: x[0], reverse=True)
+
+
+# In[34]:
+
+
+def getWeeklies(firstDate: datetime = _OLDEST_DATE) -> List[Tuple[datetime, int]] :
+    '''
+    Retrieves the weekly premium questions from the official LeetCode json data
+    and returns them as a set of strings
+
+    ### Returns :
+    weeklies : List[Tuple[date, questionNo]]
+    '''
+    
+    with open(WEEKLIES_DATA_PATH, 'rb') as fp:
+        weeklies = json.load(fp)
+    
+    output = []
+
+    for k in list(weeklies.keys()) :
+        newK = datetime.strptime(k, '%Y-%m-%d')
+        if newK < firstDate :
+            continue
+
+        output.append((newK, int(weeklies[k]['question']['questionFrontendId'])))
+
+    return sorted(output, key=lambda x: x[0], reverse=True)
+
+
+# In[36]:
+
+
+# # NOTE: TESTING
+# temp = getWeeklies(datetime(2022, 1, 1))
+# ic(temp)
+
+
+# In[ ]:
+
+
+def parseQuestionsForDailies(questionData: dict) -> Dict[int, Question] :
+    '''
+    Parses the official LeetCode json data for the daily and weekly premium questions
+    and returns them as a dictionary of question numbers to question objects
+
+    ### Returns :
+    dailies : Dict[int, Question]
+        A dictionary containing the daily questions as question objects
+    weeklies : Dict[int, Question]
+        A dictionary containing the weekly premium questions as question objects
+    '''
+    dailies = getDailies()
+    dailiesDict = {}
+
+    # I have ~12 hours of leeway due to potential to forget to commit
+    for date, qNo in dailies :
+        if qNo in questionData and questionData[qNo]['date_done'] <= date + timedelta(days=1, hours=12) :
+            dailiesDict[date] = questionData[qNo].copy()
+            dailiesDict[date]['date_done'] = date
+
+    return dailiesDict
+
+
+# In[ ]:
+
+
+def parseQuestionsForWeeklies(questionData: dict) -> Dict[int, Question] :
+    '''
+    Parses the official LeetCode json data for the daily and weekly premium questions
+    and returns them as a dictionary of question numbers to question objects
+
+    ### Returns :
+    dailies : Dict[int, Question]
+        A dictionary containing the daily questions as question objects
+    weeklies : Dict[int, Question]
+        A dictionary containing the weekly premium questions as question objects
+    '''
+    weeklies = getWeeklies()
+    weekliesDict = {}
+
+    # I gave ~1 day of leeway for the weeklies in case you forget to commit
+    for date, qNo in weeklies :
+        if qNo in questionData and questionData[qNo]['date_done'] <= date + timedelta(days=8) :
+            weekliesDict[date] = questionData[qNo].copy()
+            weekliesDict[date]['date_done'] = date
+
+    return weekliesDict
+
+
 # # Parsing Files
 # Question file parsing occurs here. It organizes it into 3 different lists, separated by difficulty and sorted by question number afterwards.
 
@@ -594,9 +724,9 @@ def parseCase(leetcodeFile:         str,  # file name
         categories.add('Contest')
 
 
-    for cat in PRIMARY_CATEGORIES :
-        if cat.lower() in leetcodeFile.lower() :
-            categories.add(cat)
+    # for cat in PRIMARY_CATEGORIES :
+    #     if cat.lower() in leetcodeFile.lower() :
+    #         categories.add(cat)
 
     if number in questionData :                                     # If solution already found for this question
         questionData[number] = updateQuestion(questionData[number], 
@@ -813,7 +943,6 @@ QUESTION_DATA_FOLDER_PATH    = getenv('QUESTION_DATA_PATH')
 QUESTION_TOPICS_FILE         = getenv('LEETCODE_QUESTION_TOPICS')
 QUESTION_DETAILS_FILE        = getenv('LEETCODE_QUESTION_DETAILS')
 
-import json
 with open('question_data/language_equivs.json') as f :
     LANGUAGE_EQUIVS = json.load(f)
     
@@ -1090,6 +1219,8 @@ def questionTopicDataframes(questionData: dict,
     return output
 
 
+# Note: Topic based markdown generation and any of the large list markdowns in general sometimes suddenly show massive edits for what should be a regular usual question update. This is likely due to the dataframe.to_markdown method increasing the width of the table due to a larger than before seen input.
+
 # In[ ]:
 
 
@@ -1239,10 +1370,10 @@ def miscMarkdownGenerations(questionData:   dict,
         header_data = '# Most Recently Solved Questions\n\n'
         details     = 'Calculations are based on the date of the first solve.\n\n'
     elif daily :
-        dailyQuestionData = {}
-        for qNo, qData in questionData.items() :
-            if 'Daily' in qData['categories'] :
-                dailyQuestionData[qNo] = qData
+        dailyQuestionData = parseQuestionsForDailies(questionData)
+        # for qNo, qData in questionData.items() :
+        #     if 'Daily' in qData['categories'] :
+        #         dailyQuestionData[qNo] = qData
         df = byRecentQuestionDataDataframe(dailyQuestionData)
         fileName    = 'Daily_Questions.md'
         # header_data = f'# [Daily Questions](<{DAILY_URL}>)\n\n'
@@ -1431,6 +1562,9 @@ def main(*, recalculateAll: bool = False, noRecord: bool = False) -> None :
     processMarkdownGeneration(questionData=questionData, 
                               reprocessMarkdown=reprocessMarkdown, 
                               questionDetailsDict=questionDetailsDict)
+    
+    # dailyQuestionDict = parseQuestionsForDailies(questionData)
+    # weeklyQuestionDict = parseQuestionsForWeeklies(questionData)
     
     # Produces a markdown where questions are sorted by the amount of code
     # written for the question
