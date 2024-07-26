@@ -170,17 +170,22 @@ def individualCTimeViaGit(cmd: List[str]) -> Tuple[datetime, datetime] :
     result = process.stdout.readlines()
     modifiedTimes = []
     
-    if len(result) >= 1:
-        for line in result:
-            modifiedTimes.append(line.decode("utf-8").replace('\n', ''))
+    for line in result:
+        temp = line.decode("utf-8").replace('\n', '')
     
-    # In case of a redundant '\n' at the end of an output
-    if modifiedTimes[-1] == '':
-        modifiedTimes.pop()
+        # In case of a redundant '\n' at the end of an output
+        if temp :
+            modifiedTimes.append(temp)
+        
+    # Debugging
+    if '1404' in cmd[-1] :
+        print(f'{cmd = }')
+        print(f'{modifiedTimes = }')
+        print(f'{result = }')
     
     try :
-        creationDate = datetime.strptime(time.ctime(int(modifiedTimes[0])), '%a %b %d %H:%M:%S %Y')
-        modifiedDate = datetime.strptime(time.ctime(int(modifiedTimes[-1])), '%a %b %d %H:%M:%S %Y')
+        creationDate = datetime.strptime(time.ctime(int(min(modifiedTimes))), '%a %b %d %H:%M:%S %Y')
+        modifiedDate = datetime.strptime(time.ctime(int(max(modifiedTimes))), '%a %b %d %H:%M:%S %Y')
         
     except ValueError as ve:
         print(f'Error in parsing {path}')
@@ -212,7 +217,9 @@ def getAllCTimesViaGit(paths: List[str]) -> Dict[str, Tuple[datetime, datetime]]
     chdir('../')
     print(f'README path: {getcwd() = }')
 
-    cmd = r"git log --follow --format=%ct --reverse --".split()
+    cmd = r"git log -M --format=%ct --reverse --".split()
+    # cmd = r"git log -M --follow --format=%ct --reverse --".split()
+    # cmd = r"git log --follow --format=%ct --reverse --".split()
     output = {}
     
     oldest_date = datetime.now()
@@ -236,6 +243,8 @@ def getAllCTimesViaGit(paths: List[str]) -> Dict[str, Tuple[datetime, datetime]]
                 
     #     print((15 - pqBarsPrinted) * '=', '\n\n')
     # else :
+    
+    
     with tqdm(total=len(paths)) as pbar :
     # with tqdm(total=len(paths), position=0, leave=True) as pbar :
         for i, path in enumerate(paths) :
@@ -666,6 +675,7 @@ def parseQuestionsForDailies(questionData: dict) -> Dict[int, Question] :
         if qNo in questionData and questionData[qNo]['date_done'] <= date + timedelta(days=1, hours=12) :
             dailiesDict[date] = questionData[qNo].copy()
             dailiesDict[date]['date_done'] = date
+            questionData[qNo]['categories'].add('Daily')
             # print(f'{dailiesDict[date] = }')
 
     # print(f'{dailiesDict = }')
@@ -695,6 +705,7 @@ def parseQuestionsForWeeklies(questionData: dict) -> Dict[int, Question] :
         if qNo in questionData and questionData[qNo]['date_done'] <= date + timedelta(days=8) :
             weekliesDict[date] = questionData[qNo].copy()
             weekliesDict[date]['date_done'] = date
+            questionData[qNo]['categories'].add('Weekly Premium')
 
     return weekliesDict
 
@@ -1401,7 +1412,8 @@ def miscMarkdownGenerations(questionData:   dict,
                             *,
                             code_length:    bool = False,
                             recent:         bool = False,
-                            daily:          bool = False) -> str : # output path
+                            daily:          bool = False,
+                            weekly:         bool = False) -> str : # output path
     
     df = None
     fileName = None
@@ -1431,6 +1443,16 @@ def miscMarkdownGenerations(questionData:   dict,
         fileName    = 'Daily_Questions.md'
         # header_data = f'# [Daily Questions](<{DAILY_URL}>)\n\n'
         header_data = f'# Daily Questions\n\n'
+        details     = 'Dates are for the date I completed the ' + \
+                      'question so due to the my time zone and how it lines up with ' + \
+                      'UTC, it may be off by a day.\n\n'
+    elif weekly :
+        weeklyQuestionData = parseQuestionsForWeeklies(questionData)
+    
+        df = byRecentQuestionDataDataframe(weeklyQuestionData)
+        fileName    = 'Weekly_Questions.md'
+        # header_data = f'# [Daily Questions](<{DAILY_URL}>)\n\n'
+        header_data = f'# Weekly Premium Questions\n\n'
         details     = 'Dates are for the date I completed the ' + \
                       'question so due to the my time zone and how it lines up with ' + \
                       'UTC, it may be off by a day.\n\n'
@@ -1489,7 +1511,7 @@ def exportPrimaryReadme(dfQuestions:        DataFrame,
     with open(readmePath, 'w') as file :
         username = getenv('LEETCODE_USERNAME')
         file.write(f'# **[LeetCode Records](https://leetcode.com/u/{username}/)** ({qSolvedHeader})\n\n')
-        
+        file.write(f'<!-- This readme was generated using [WikiLeet](<https://github.com/Zanger67/WikiLeet>) -->')
         file.write(f'> My LeetCode Profile: [{username}](https://leetcode.com/u/{username}/)\n')
         
         # if difficultyBasedMarkdowns :
@@ -1621,10 +1643,12 @@ def main(*, recalculateAll: bool = False, noRecord: bool = False) -> None :
     # written for the question
     # code_length_md_path = exportCodeLengthMarkdown(questionData)
     print('Generating category lists...')
+    dailyQuestions      = miscMarkdownGenerations(questionData, daily=True)
+    weeklyQuestions     = miscMarkdownGenerations(questionData, weekly=True)
     byCodeLength        = miscMarkdownGenerations(questionData, code_length=True)
     byRecentlySolved    = miscMarkdownGenerations(questionData, recent=True)
-    dailyQuestions      = miscMarkdownGenerations(questionData, daily=True)
     altSorts            = [f'- [Daily Questions](<{dailyQuestions}>)',
+                           f'- [Weekly Questions](<{weeklyQuestions}>)',
                            f'- [Questions By Code Length](<{byCodeLength}>)',
                            f'- [Questions By Recent](<{byRecentlySolved}>)']
     

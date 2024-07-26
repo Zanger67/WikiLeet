@@ -32,16 +32,18 @@ runs:
     - name: Pull current version of markdown generator | Cloning if not present 
       shell: bash
       run: |
-        if [ -d .readme_updater/ ]; then
-            echo "Submodule exists."
-        else
-            echo "Submodule not found. Adding..."
-            git submodule add https://github.com/Zanger67/Leetcode-Progress-Tracker.git '.readme_updater'
-        fi
+        git clone --recurse-submodules https://github.com/Zanger67/Leetcode-Progress-Tracker.git '.readme_updater'
 
-        echo "Initializing and updating submodules..."
-        git submodule update --init --recursive
-        git submodule update --recursive --remote
+        # if [ -d .readme_updater/ ]; then
+        #     echo "Submodule exists."
+        # else
+        #     echo "Submodule not found. Adding..."
+        #     git submodule add https://github.com/Zanger67/Leetcode-Progress-Tracker.git '.readme_updater'
+        # fi
+
+        # echo "Initializing and updating submodules..."
+        # git submodule update --init --recursive
+        # git submodule update --recursive --remote
 
         # cd .readme_updater
 
@@ -109,7 +111,7 @@ runs:
       run: |
           git config --global user.name "Zanger67/leetcode"
           git config --global user.email "Zanger67[bot]@Zanger67.github.io"
-          git add .
+          git add -- . ':!.readme_updater'
           git commit -m 'Updated markdown files' || exit 0
           git push
 
