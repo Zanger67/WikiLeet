@@ -45,9 +45,9 @@ runs:
 
         # cd .readme_updater
 
-        # Present for testing branch -- unused
-        git fetch origin daily-by-official-dates
-        git checkout daily-by-official-dates
+        # # Present for testing branch -- unused
+        # git fetch origin daily-by-official-dates
+        # git checkout daily-by-official-dates
 
         # # Make sure current branch is the main live branch
         # git fetch origin main
