@@ -53,9 +53,9 @@ runs:
         # git fetch origin main
         # git checkout main
 
-        echo "Initializing and updating submodules in case checkout resulted in uninitializations..."
-        git submodule update --init --recursive
-        git submodule update --recursive --remote
+        # echo "Initializing and updating submodules in case checkout resulted in uninitializations..."
+        # git submodule update --init --recursive
+        # git submodule update --recursive --remote
         # cd ../
 
 
