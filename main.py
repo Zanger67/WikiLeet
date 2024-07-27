@@ -1511,7 +1511,7 @@ def exportPrimaryReadme(dfQuestions:        DataFrame,
     with open(readmePath, 'w') as file :
         username = getenv('LEETCODE_USERNAME')
         file.write(f'# **[LeetCode Records](https://leetcode.com/u/{username}/)** ({qSolvedHeader})\n\n')
-        file.write(f'<!-- This readme was generated using [WikiLeet](<https://github.com/Zanger67/WikiLeet>) -->')
+        file.write(f'<!-- This readme was generated using [WikiLeet](<https://github.com/Zanger67/WikiLeet>) -->\n\n')
         file.write(f'> My LeetCode Profile: [{username}](https://leetcode.com/u/{username}/)\n')
         
         # if difficultyBasedMarkdowns :

@@ -33,6 +33,12 @@ runs:
       shell: bash
       run: |
         git clone --recurse-submodules https://github.com/Zanger67/Leetcode-Progress-Tracker.git '.readme_updater'
+        
+        cd .readme_updater
+        echo "Initializing and updating submodules in case checkout resulted in uninitializations..."
+        git submodule update --init --recursive
+        git submodule update --recursive --remote
+        cd ../
 
         # if [ -d .readme_updater/ ]; then
         #     echo "Submodule exists."
