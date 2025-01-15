@@ -1707,6 +1707,7 @@ if __name__ == '__main__' :
 
     if not IS_NOTEBOOK :
         parser = argparse.ArgumentParser()
+        
 
         parser.add_argument("-r", 
                             help="Recompile all markdown files", 
@@ -1729,6 +1730,13 @@ if __name__ == '__main__' :
         parser.add_argument('-user', type=str, default='', required=False, help='LeetCode Username')
         if parser.parse_args().user :
             environ['LEETCODE_USERNAME'] = parser.parse_args().user
+        
+        parser.add_argument("-dir",
+                            help="Solutions directory name; default of \"my-submissions\"",
+                            required=False)
+        if parser.parse_args().dir :
+            environ['QUESTIONS_PATH_FROM_README'] = parser.parse_args().dir
+        
         
         
         recalcaulateAll = parser.parse_args().r
