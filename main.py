@@ -1732,10 +1732,12 @@ if __name__ == '__main__' :
             environ['LEETCODE_USERNAME'] = parser.parse_args().user
         
         parser.add_argument("-dir",
-                            help="Solutions directory name; default of \"my-submissions\"",
+                            help="Solutions directory name; default of \"my-submissions/\"",
                             required=False)
         if parser.parse_args().dir :
             environ['QUESTIONS_PATH_FROM_README'] = parser.parse_args().dir
+            if not environ['QUESTIONS_PATH_FROM_README'].endswith('/') :
+                environ['QUESTIONS_PATH_FROM_README'] = f"{environ['QUESTIONS_PATH_FROM_README']}/"
         
         
         
