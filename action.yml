@@ -45,40 +45,15 @@ runs:
               git submodule update --recursive --remote
               cd ../
 
-              # if [ -d .readme_updater/ ]; then
-              #     echo "Submodule exists."
-              # else
-              #     echo "Submodule not found. Adding..."
-              #     git submodule add https://github.com/Zanger67/Leetcode-Progress-Tracker.git '.readme_updater'
-              # fi
-
-              # echo "Initializing and updating submodules..."
-              # git submodule update --init --recursive
-              # git submodule update --recursive --remote
-
-              # cd .readme_updater
-
-              # # Present for testing branch -- unused
-              # git fetch origin daily-by-official-dates
-              # git checkout daily-by-official-dates
-
-              # # Make sure current branch is the main live branch
-              # git fetch origin main
-              # git checkout main
-
-              # echo "Initializing and updating submodules in case checkout resulted in uninitializations..."
-              # git submodule update --init --recursive
-              # git submodule update --recursive --remote
-              # cd ../
-
-        - name: Ensure my-submissions directory exists
+        # Gets DIR from the above optional input
+        - name: Ensure designed submissions directory exists
           shell: bash
           run: |
-              if [ -d my-submissions/ ]; then
-                  echo "my-submissions directory found"
+              if [ -d ${{ inputs.dir }} ]; then
+                  echo "${{ inputs.dir }} directory found"
               else
-                  echo "my-submissions directory not found. Creating..."
-                  mkdir "my-submissions"
+                  echo "${{ inputs.dir }} directory not found. Creating..."
+                  mkdir "${{ inputs.dir }}"
               fi
 
         - name: Setup python 3.10
