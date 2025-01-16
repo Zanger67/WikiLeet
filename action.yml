@@ -99,7 +99,7 @@ runs:
           # -n: ignores previous .pkl stores of the modified dates (regenerate all from scratch)
           # -g: use github log history to determine creation and modification dates of files
           # -user: specify the username for the LeetCode account
-          run: python '.readme_updater/main.py' -n -g -user ${{ inputs.username }} -dir ${{inputs.dir}}
+          run: python '.readme_updater/main.py' -n -g -user "${{ inputs.username }}" -dir "${{ inputs.dir }}"
 
           # Note: exit 0 should be redundant since this action triggers on a modification meaning
           #       at least one file edit, but might as well keep it in case of future changes
