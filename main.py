@@ -90,7 +90,6 @@ load_dotenv(find_dotenv(), override=True)
 if '.env' in listdir('../') :
     print('.env found in ../ directory. Overriding default...')
     load_dotenv(find_dotenv('../.env'), override=True)
-    
 
 
 # In[15]:
@@ -111,11 +110,10 @@ except NameError:
     pass
 
 
-# In[17]:
+# In[ ]:
 
 
 import env_config as config
-# from env_config import config
 
 
 # In[ ]:
@@ -146,66 +144,65 @@ print(f'{NOTEBOOK_ABS_DIR = }')
 # In[ ]:
 
 
+'''
+Configed separately so that values are static and global in all cases with less 
+chance of error e.g. forgetting the global keyboard declaration.
+
+Also allows for us to establish the values dependent on the .env AFTER
+we have a chance to modify them e.g. if there's a user input for a different 
+directory for solution files.
+'''
 def set_env_linked_constants() -> None :
-    # global README_PATH, LEETCODE_PATH_FROM_README, LEETCODE_PATH_REFERENCE
-    config.README_PATH                 = getenv('README_PATH')
-    config.LEETCODE_PATH_FROM_README   = getenv('QUESTIONS_PATH_FROM_README')
-    config.LEETCODE_PATH_REFERENCE     = join(config.README_PATH, config.LEETCODE_PATH_FROM_README)
+    config.README_PATH                      = getenv('README_PATH')
+    config.LEETCODE_PATH_FROM_README        = getenv('QUESTIONS_PATH_FROM_README')
+    config.LEETCODE_PATH_REFERENCE          = join(config.README_PATH, 
+                                                   config.LEETCODE_PATH_FROM_README)
     
-    # global QUESTION_DATA_FOLDER, SUBMODULE_DATA_PATH
-    config.QUESTION_DATA_FOLDER = join(getenv('SUBMODULE_DATA_PATH'), getenv('LEETCODE_QUESTION_DETAILS'))
-    config.SUBMODULE_DATA_PATH = getenv('SUBMODULE_DATA_PATH')    
-    print(f'{config.QUESTION_DATA_FOLDER = }')
+    config.QUESTION_DATA_FOLDER             = join(getenv('SUBMODULE_DATA_PATH'), 
+                                                   getenv('LEETCODE_QUESTION_DETAILS'))
+    config.SUBMODULE_DATA_PATH              = getenv('SUBMODULE_DATA_PATH')    
     
-    # global HISTORY_PATH
-    config.HISTORY_PATH = join(getenv('USER_DATA_PATH'), getenv('FILE_MODIFICATION_NAME'))
+    config.HISTORY_PATH                     = join(getenv('USER_DATA_PATH'), 
+                                                   getenv('FILE_MODIFICATION_NAME'))
     
-    # global DAILIES_DATA_PATH, WEEKLIES_DATA_PATH
-    config.DAILIES_DATA_PATH = join(getenv('SUBMODULE_DATA_PATH'), getenv('DAILIES_FOLDER'), getenv('DAILIES_FILE'))
-    config.WEEKLIES_DATA_PATH = join(getenv('SUBMODULE_DATA_PATH'), getenv('DAILIES_FOLDER'), getenv('WEEKLIES_FILE'))
+    config.DAILIES_DATA_PATH                = join(getenv('SUBMODULE_DATA_PATH'), 
+                                                   getenv('DAILIES_FOLDER'), 
+                                                   getenv('DAILIES_FILE'))
+    config.WEEKLIES_DATA_PATH               = join(getenv('SUBMODULE_DATA_PATH'), 
+                                                   getenv('DAILIES_FOLDER'), 
+                                                   getenv('WEEKLIES_FILE'))
 
-    # global LISTSDIR, QUESTIONS_FOLDER_FROM_README, QUESTIONS_FOLDER
-    config.LISTSDIR                        = getenv('LISTS_LOCATION')
-    config.QUESTIONS_FOLDER_FROM_README    = getenv('QUESTIONS_PATH_FROM_README')
-    config.QUESTIONS_FOLDER                = join(config.README_PATH, config.QUESTIONS_FOLDER_FROM_README)
+    config.LISTSDIR                         = getenv('LISTS_LOCATION')
+    config.QUESTIONS_FOLDER_FROM_README     = getenv('QUESTIONS_PATH_FROM_README')
+    config.QUESTIONS_FOLDER                 = join(config.README_PATH, 
+                                                   config.QUESTIONS_FOLDER_FROM_README)
 
-    # global MARKDOWN_PATH, MARKDOWN_TO_SUBMISSIONS
-    config.MARKDOWN_PATH = getenv('QUESTION_MARKDOWNS_PATH_FROM_README')
-    config.MARKDOWN_TO_SUBMISSIONS = '../' * config.MARKDOWN_PATH.count('/') + config.QUESTIONS_FOLDER_FROM_README
+    config.MARKDOWN_PATH                    = getenv('QUESTION_MARKDOWNS_PATH_FROM_README')
+    config.MARKDOWN_TO_SUBMISSIONS          = '../' * config.MARKDOWN_PATH.count('/') + \
+                                              config.QUESTIONS_FOLDER_FROM_README
 
+    config.QUESTION_DATA_FOLDER_PATH        = getenv('QUESTION_DATA_PATH')
+    config.QUESTION_TOPICS_FILE             = getenv('LEETCODE_QUESTION_TOPICS')
+    config.QUESTION_DETAILS_FILE            = getenv('LEETCODE_QUESTION_DETAILS')
 
-    # global QUESTION_DATA_FOLDER_PATH, QUESTION_TOPICS_FILE, QUESTION_DETAILS_FILE
-    config.QUESTION_DATA_FOLDER_PATH    = getenv('QUESTION_DATA_PATH')
-    config.QUESTION_TOPICS_FILE         = getenv('LEETCODE_QUESTION_TOPICS')
-    config.QUESTION_DETAILS_FILE        = getenv('LEETCODE_QUESTION_DETAILS')
-
-    # global BY_TOPIC_FOLDER_PATH
-    config.BY_TOPIC_FOLDER_PATH = getenv('TOPIC_MARKDOWN_PATH_IN_MARKDOWNS_FOLDER')
+    config.BY_TOPIC_FOLDER_PATH             = getenv('TOPIC_MARKDOWN_PATH_IN_MARKDOWNS_FOLDER')
     
-    
-    
-    
-    # global TOPIC_FOLDER
-    config.TOPIC_FOLDER = getenv('TOPIC_MARKDOWN_PATH_IN_MARKDOWNS_FOLDER')
+    config.TOPIC_FOLDER                     = getenv('TOPIC_MARKDOWN_PATH_IN_MARKDOWNS_FOLDER')
 
-    # global NOTEBOOK_PATH
     # For each topic case
-    config.NOTEBOOK_PATH = join(config.README_PATH, config.MARKDOWN_PATH, config.TOPIC_FOLDER)
+    config.NOTEBOOK_PATH                    = join(config.README_PATH, 
+                                                   config.MARKDOWN_PATH, 
+                                                   config.TOPIC_FOLDER)
 
-    # global OVERALL_FILE_NOTEBOOK_PATH, OVERALL_FILE_README_PATH
     # For the overal hosting markdown
-    config.OVERALL_FILE_NOTEBOOK_PATH = join(config.README_PATH, config.MARKDOWN_PATH, 'Topics.md')
-    config.OVERALL_FILE_README_PATH   = join(config.MARKDOWN_PATH, 'Topics.md')
+    config.OVERALL_FILE_NOTEBOOK_PATH       = join(config.README_PATH, 
+                                                   config.MARKDOWN_PATH, 
+                                                   'Topics.md')
+    config.OVERALL_FILE_README_PATH         = join(config.MARKDOWN_PATH, 
+                                                   'Topics.md')
 
-    # global DIFFICULTY_MARKDOWNS_PATH, DAILY_URL
-    config.DIFFICULTY_MARKDOWNS_PATH = config.MARKDOWN_PATH
-    config.DAILY_URL = ''
-
-
-# In[ ]:
-
-
-
+    config.DIFFICULTY_MARKDOWNS_PATH        = config.MARKDOWN_PATH
+    config.DAILY_URL                        = ''
 
 
 # ## Helper Methods
@@ -218,15 +215,10 @@ def set_env_linked_constants() -> None :
 
 
 _ALL_GIT_CM_TIMES = {}
-
 USE_GIT_DATES = False
-
-
-
 
 with open('question_data/language_equivs.json') as f :
     LANGUAGE_EQUIVS = json.load(f)
-    
 
 COLUMNS = [
             '#',
@@ -258,7 +250,7 @@ def individualCTimeViaGit(cmd: List[str]) -> Tuple[datetime, datetime] :
                                stdin=None,
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)
-    result = process.stdout.readlines()
+    result        = process.stdout.readlines()
     modifiedTimes = []
     
     for line in result:
@@ -409,7 +401,9 @@ def getCtimeMtimesMain(path: str) -> Tuple[datetime, datetime] :
 # In[ ]:
 
 
-def getCtimeMtimes(path: str, *, preCalculated: Dict[str, Tuple[datetime, datetime]] = None) -> Tuple[datetime, datetime] :
+def getCtimeMtimes(path: str, 
+                   *, 
+                   preCalculated: Dict[str, Tuple[datetime, datetime]] = None) -> Tuple[datetime, datetime] :
     # Due to readme realtive and script relative paths
     readme_path = path if ('../' not in path) else path[path.find('../') + len('../'):]
     if _ALL_GIT_CM_TIMES and readme_path in _ALL_GIT_CM_TIMES :
@@ -471,7 +465,7 @@ def addCase(level:              str,
     '''
 
     creation_date, modification_date = getCtimeMtimes(notebook_path)
-    fileLatestTimes[readme_path] = modification_date
+    fileLatestTimes[readme_path]     = modification_date
 
     try :
         fileSize = stat(notebook_path).st_size
@@ -617,12 +611,6 @@ def retrieveQuestionDetails() -> dict :
 # In[ ]:
 
 
-
-
-
-# In[ ]:
-
-
 def writeRecentFileTimes(fileLatestTimes: dict) -> bool :
     '''Pickles the newly found most recent modification times of each question for reference in future runs'''
     
@@ -646,12 +634,6 @@ def getRecentFileTimes() -> dict :
 
 
 # # Daily and Weekly Challenges
-
-# In[ ]:
-
-
-
-
 
 # In[ ]:
 
@@ -681,8 +663,6 @@ def getDailies(firstDate: datetime = None) -> List[Tuple[datetime, int]] :
 
         output.append((newK, int(dailies[k]['question']['questionFrontendId'])))
 
-    # print(f'{firstDate = }')
-    # print(f'dailies: {output = }')
     return sorted(output, key=lambda x: x[0], reverse=True)
 
 
@@ -720,14 +700,6 @@ def getWeeklies(firstDate: datetime = None) -> List[Tuple[datetime, int]] :
 # In[ ]:
 
 
-# # NOTE: TESTING
-# temp = getWeeklies(datetime(2022, 1, 1))
-# ic(temp)
-
-
-# In[ ]:
-
-
 def parseQuestionsForDailies(questionData: dict) -> Dict[int, Question] :
     '''
     Parses the official LeetCode json data for the daily and weekly premium questions
@@ -742,20 +714,12 @@ def parseQuestionsForDailies(questionData: dict) -> Dict[int, Question] :
     dailies = getDailies()
     dailiesDict = {}
 
-    # I have ~12 hours of leeway due to potential to forget to commit
+    # I've added ~12 hours of leeway due to potential to forget to commit
     for date, qNo in dailies :
-        # if qNo == 1334 :
-        #     print('\n\nhi')
-        #     print(f'{bool(qNo in questionData) = }')
-        #     print(f"{questionData[qNo]['date_done'] = }")
-        #     print(f"{date + timedelta(days=1, hours=12) = }")
         if qNo in questionData and questionData[qNo]['date_done'] <= date + timedelta(days=1, hours=12) :
             dailiesDict[date] = questionData[qNo].copy()
             dailiesDict[date]['date_done'] = date
             questionData[qNo]['categories'].add('Daily')
-            # print(f'{dailiesDict[date] = }')
-
-    # print(f'{dailiesDict = }')
 
     return dailiesDict
 
@@ -777,7 +741,7 @@ def parseQuestionsForWeeklies(questionData: dict) -> Dict[int, Question] :
     weeklies = getWeeklies()
     weekliesDict = {}
 
-    # I gave ~1 day of leeway for the weeklies in case you forget to commit
+    # I've given ~1 day of leeway for the weeklies in case you forget to commit
     for date, qNo in weeklies :
         if qNo in questionData and questionData[qNo]['date_done'] <= date + timedelta(days=8) :
             weekliesDict[date] = questionData[qNo].copy()
@@ -846,10 +810,8 @@ def parseCase(leetcodeFile:         str,  # file name
     categories  = set()
     language    = leetcodeFile[leetcodeFile.rfind('.') + 1:]
 
-
     if len(altTitle) > 0 :
         title = altTitle + ' - ' + title
-
 
     # Question is from a contest folder
     if contest :
@@ -858,11 +820,6 @@ def parseCase(leetcodeFile:         str,  # file name
             contestQNo = temp[0]
 
         categories.add('Contest')
-
-
-    # for cat in PRIMARY_CATEGORIES :
-    #     if cat.lower() in leetcodeFile.lower() :
-    #         categories.add(cat)
 
     if number in questionData :                                     # If solution already found for this question
         questionData[number] = updateQuestion(questionData[number], 
@@ -892,45 +849,64 @@ def parseCase(leetcodeFile:         str,  # file name
 
 @cache
 def getCodeFiles() -> List[str] :
-    return [x for x in listdir(config.LEETCODE_PATH_REFERENCE) if isfile(join(config.LEETCODE_PATH_REFERENCE, x))
-                                                           and not x.endswith('.txt')
-                                                           and not x.endswith('.md')
-                                                           and not x.endswith('.gitignore')
-                                                           and '.' in x]
+    return [
+        x for x in listdir(config.LEETCODE_PATH_REFERENCE)
+        
+        if isfile(join(config.LEETCODE_PATH_REFERENCE, x))
+            and not x.endswith('.txt')
+            and not x.endswith('.md')
+            and not x.endswith('.gitignore')
+            and '.' in x
+    ]
 
 @cache
 def getContestFolders() -> List[str] :
-    return [x for x in listdir(config.LEETCODE_PATH_REFERENCE) if not isfile(join(config.LEETCODE_PATH_REFERENCE, x))]
+    return [
+        x for x in listdir(config.LEETCODE_PATH_REFERENCE)
+        if not isfile(join(config.LEETCODE_PATH_REFERENCE, x))
+    ]
 
 @cache
 def getContextFiles(*, contestFolders: List[str] = None) -> List[str] :
     if not contestFolders :
         contestFolders = getContestFolders()
     
-    output = [x for x in listdir(config.LEETCODE_PATH_REFERENCE) if isfile(join(config.LEETCODE_PATH_REFERENCE, x)) 
-                                                             and (x.endswith('.txt') 
-                                                                  or x.endswith('.md') 
-                                                                  or '.' not in x)
-                                                             and not x.endswith('.gitignore')]
+    output = [
+        x for x in listdir(config.LEETCODE_PATH_REFERENCE)
+        
+        if isfile(join(config.LEETCODE_PATH_REFERENCE, x)) 
+            and (x.endswith('.txt') 
+                    or x.endswith('.md') 
+                    or '.' not in x)
+            and not x.endswith('.gitignore')
+    ]
+    
     for folder in contestFolders :
-        output.extend([join(folder, y) for y in listdir(join(config.LEETCODE_PATH_REFERENCE, folder)) 
-                                if isfile(join(config.LEETCODE_PATH_REFERENCE, folder, y))
-                                   and (y.endswith('.txt') 
-                                        or y.endswith('.md') 
-                                        or '.' not in y)
-                                   and not y.endswith('.gitignore')])
+        output.extend([
+            join(folder, y) for y in listdir(join(config.LEETCODE_PATH_REFERENCE, folder))
+            
+            if isfile(join(config.LEETCODE_PATH_REFERENCE, folder, y))
+                and (y.endswith('.txt') 
+                        or y.endswith('.md')
+                        or '.' not in y)
+                and not y.endswith('.gitignore')
+        ])
     return output
 
 def getContestFiles(contestFolders: List[str]) -> List[Tuple[str, str]] :
-    contestLeetcodeFiles    = []
+    contestLeetcodeFiles = []
 
     for contestFolder in contestFolders :
-        contestLeetcodeFiles.extend([(contestFolder, fileName) for fileName in listdir(join(config.LEETCODE_PATH_REFERENCE, contestFolder)) 
-                                                                if isfile(join(config.LEETCODE_PATH_REFERENCE, contestFolder, fileName))
-                                                                    and not fileName.endswith('.txt')
-                                                                    and not fileName.endswith('.md')
-                                                                    and '.' in fileName
-                                                                    and not fileName.endswith('.gitignore')])
+        contestLeetcodeFiles.extend([
+            (contestFolder, fileName) for fileName in listdir(join(config.LEETCODE_PATH_REFERENCE, 
+                                                                   contestFolder))
+            
+            if isfile(join(config.LEETCODE_PATH_REFERENCE, contestFolder, fileName))
+                and not fileName.endswith('.txt')
+                and not fileName.endswith('.md')
+                and '.' in fileName
+                and not fileName.endswith('.gitignore')
+        ])
     
     return contestLeetcodeFiles
 
@@ -947,8 +923,6 @@ def parseContextFiles(txtFiles: str,
                       fileLatestTimes: dict, 
                       reprocessMarkdown: Set[int]) -> None:
     for fileName in txtFiles :
-        # print(f'Context file found: {fileName}')
-
         try :
             if '\\' in fileName :
                 number = int(re.search("\d{1,4}", fileName[fileName.rfind('\\'):]).group())
@@ -984,11 +958,15 @@ def parseContextFiles(txtFiles: str,
 @cache
 def getLists() -> List[str] :
 
-    listFileNames = [x for x in listdir(config.LISTSDIR) if isfile(join(config.LISTSDIR, x)) 
-                                                    and not x.startswith('.')
-                                                    and not x == 'README.md']
+    listFileNames = [
+        x for x in listdir(config.LISTSDIR) 
+        
+        if isfile(join(config.LISTSDIR, x)) 
+            and not x.startswith('.')
+            and not x == 'README.md'
+    ]
+    
     print(listFileNames)
-
     return listFileNames
 
 
@@ -1039,8 +1017,6 @@ def processListData(questionData: dict,
             if q in questionData :
                 questionData[q]['categories'].add(file)
                 
-    # print(listData)
-
     return listData
 
 
@@ -1071,12 +1047,6 @@ def getCompletedQuestionsTopicLists(questionData: dict,
 
 # # Individual Markdown Generation
 # 
-
-# In[ ]:
-
-
-
-
 
 # In[ ]:
 
@@ -1211,19 +1181,14 @@ def processMarkdownGeneration(questionData: dict,
 # In[ ]:
 
 
-
-
-
-# In[ ]:
-
-
 def convertDataToMatrix(questionData: dict,
                         *,
-                        sortBy:       str = 'number',
-                        includeDate:  bool = False,
+                        sortBy: str = 'number',
+                        includeDate: bool = False,
                         includeQuestions: set[int] = set(),
                         relativeFolderAdjustment: int = 0,
                         includeMarkdownFolder: bool = False) -> List[list] :
+    
     dataframe_array = []
 
     for question in questionData.values() :
@@ -1289,8 +1254,6 @@ def convertQuestionDataToDataframe(questionData: dict,
     if questionData :
         dfQuestions = kungfupanda.DataFrame(data=questionData, columns=COLUMNS[:len(questionData[0])])
     
-    # dfQuestions   = dfQuestions.astype(TYPE_CLARIFICATION[:len(questionData[0])])
-
     return dfQuestions
 
 
@@ -1338,7 +1301,7 @@ def questionTopicDataframes(questionData: dict,
                                                       includeQuestions=qs,
                                                       relativeFolderAdjustment= \
                                                         -getenv('TOPIC_MARKDOWN_PATH_IN_MARKDOWNS_FOLDER').count('/'))))
-        
+
     output.sort(key=lambda x: x[1], reverse=True)
     return output
 
@@ -1390,16 +1353,18 @@ def topicBasedMarkdowns(questionData: dict,
 # In[ ]:
 
 
-def generateDifficultyLevelMarkdowns(questionData: dict) -> Tuple[Tuple[int, str], Tuple[int, str], Tuple[int, str]] :
+def generateDifficultyLevelMarkdowns(questionData: dict) -> Tuple[Tuple[int, str], 
+                                                                  Tuple[int, str], 
+                                                                  Tuple[int, str]] :
     '''
     ### Returns:
     - Tuple[Easy, Medium, Hard]
         - Tuple[int, str] : (count, path from readme)
     '''
     
-    easyQuestions = {}
+    easyQuestions   = {}
     mediumQuestions = {}
-    hardQuestions = {}
+    hardQuestions   = {}
     
     for q, d in questionData.items() :
         lvlIndicator = d['level'][0].lower()
@@ -1465,12 +1430,11 @@ def miscMarkdownGenerations(questionData:   dict,
                             daily:          bool = False,
                             weekly:         bool = False) -> str : # output path
     
-    df = None
-    fileName = None
+    df          = None
+    fileName    = None
     header_data = None
-    details = None
+    details     = None
 
-    # print(f'{code_length, recent = }')
     if code_length :
         df = byCodeLengthDataDataframe(questionData)
         fileName    = 'Questions_By_Code_Length.md'
@@ -1483,11 +1447,10 @@ def miscMarkdownGenerations(questionData:   dict,
         details     = 'Calculations are based on the date of the first solve.\n\n'
     elif daily :
         dailyQuestionData = parseQuestionsForDailies(questionData)
+
         print(f'{dailyQuestionData = }')
         print(f'{config._oldest_date = }')
-        # for qNo, qData in questionData.items() :
-        #     if 'Daily' in qData['categories'] :
-        #         dailyQuestionData[qNo] = qData
+
         df = byRecentQuestionDataDataframe(dailyQuestionData)
         fileName    = 'Daily_Questions.md'
         # header_data = f'# [Daily Questions](<{DAILY_URL}>)\n\n'
@@ -1498,7 +1461,7 @@ def miscMarkdownGenerations(questionData:   dict,
     elif weekly :
         weeklyQuestionData = parseQuestionsForWeeklies(questionData)
     
-        df = byRecentQuestionDataDataframe(weeklyQuestionData)
+        df          = byRecentQuestionDataDataframe(weeklyQuestionData)
         fileName    = 'Weekly_Questions.md'
         # header_data = f'# [Daily Questions](<{DAILY_URL}>)\n\n'
         header_data = f'# Weekly Premium Questions\n\n'
@@ -1509,8 +1472,6 @@ def miscMarkdownGenerations(questionData:   dict,
         print('Error. No markdown generation specified.')
         print()
         return ''
-
-    # print(f'{fileName = }')
 
     output_path = join(config.MARKDOWN_PATH, fileName)
     readme_path = join(config.README_PATH, config.MARKDOWN_PATH, fileName)
@@ -1629,7 +1590,6 @@ def main(*, recalculateAll: bool = False, noRecord: bool = False) -> None :
 
 
     questionDetailsDict     = retrieveQuestionDetails()
-    # print(questionDetailsDict)
 
     leetcodeFiles.sort()
     contestLeetcodeFiles.sort()
@@ -1794,6 +1754,7 @@ if __name__ == '__main__' :
         if parser.parse_args().dir :
             print('dir found')
             environ['QUESTIONS_PATH_FROM_README'] = parser.parse_args().dir
+            
             if not environ['QUESTIONS_PATH_FROM_README'].endswith('/') :
                 print('added / to dir')
                 environ['QUESTIONS_PATH_FROM_README'] = f"{environ['QUESTIONS_PATH_FROM_README']}/"
@@ -1809,9 +1770,6 @@ if __name__ == '__main__' :
 
     set_env_linked_constants()
     print(f'\t\t{config.QUESTION_DATA_FOLDER = }')
-
-    # README_ABS_DIR = README_ABS_DIR[:README_ABS_DIR.rindex('/')]
-    # print(README_ABS_DIR, '\n')
 
     print('No record'.ljust(20), 'on' if noRecord else 'off')
     print('Recalculate'.ljust(20), 'on' if recalcaulateAll else 'off')
