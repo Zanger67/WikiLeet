@@ -700,7 +700,7 @@ def getWeeklies(firstDate: datetime = None) -> List[Tuple[datetime, int]] :
 # In[ ]:
 
 
-def parseQuestionsForDailies(questionData: dict) -> Dict[int, Question] :
+def parseQuestionsForDailies(questionData: dict) -> Dict :
     '''
     Parses the official LeetCode json data for the daily and weekly premium questions
     and returns them as a dictionary of question numbers to question objects
@@ -722,6 +722,86 @@ def parseQuestionsForDailies(questionData: dict) -> Dict[int, Question] :
             questionData[qNo]['categories'].add('Daily')
 
     return dailiesDict
+
+
+# TODO: calendar that's clickable to go to that daily question's page
+# ISSUE: markdown will negate any spacing by the calendar package 
+#        so we have to export to a markdown table
+
+import calendar
+
+# Input data dict for the day of that month and the string it should be instead
+# def calendar_template_maker(year: int, month: int, input_data: Dict[int, str]) -> str :
+#     output_cal = []
+    
+#     month_range = calendar.monthrange(year, month)
+#     first_day = calendar.
+    
+    
+
+
+# TODO: complete this
+def get_dailies_month_maps(dailiesDict: Dict[datetime, Question]) -> str :
+    earliest_date = min(dailiesDict.keys())
+    
+    outputs = []
+    
+    # Sorted by year then month then day
+    
+    daily_data_mapped = {}
+    for date, question_data in dailiesDict.items() :
+        curr = daily_data_mapped
+        if date.year not in curr :
+            daily_data_mapped[date.year] = {}
+        curr = daily_data_mapped[date.year]
+        
+        if date.month not in curr :
+            curr[date.month] = {}
+        curr = curr[date.month]
+        
+        curr[date.day] = question_data
+    
+    for year in range(earliest_date.year, datetime.now().year + 1) :
+        if year == earliest_date.year :
+            start_month = earliest_date.month
+        else :
+            start_month = 1
+        
+        if year == datetime.now().year :
+            end_month = datetime.now().month
+        else :
+            end_month = 12
+            
+        for month in range(start_month, end_month + 1) :
+            curr = daily_data_mapped[year][month]
+            cal = calendar.month(year, month)
+            
+            print(curr.keys())
+            
+            # for day, question_data in curr.items() :
+            #     cal = re.sub(rf'\b{day}\b', f'[{day}](<{question_data["solution"]}>)', cal)
+            
+            cal = cal.split('\n')
+            # print(cal)
+            # print()
+            outputs.append(f'### {cal[0].strip()}')  # month header
+            days = cal[1].split()
+            cal = cal[2:]
+            
+            cal = [[(y if int(y) not in curr else f'[{y}](<{curr[int(y)]["solution"]}>)') for y in x.split()] for x in cal]
+            if len(cal[0]) < 7 :
+                cal[0] = [''] * (7 - len(cal[0])) + cal[0]
+            
+            if not cal[-1] :
+                cal.pop()
+            
+            df = kungfupanda.DataFrame(cal, columns=days)
+            
+            outputs.append(df.to_markdown(index=False))
+            outputs.append('\n')
+        
+    return '\n'.join(outputs)
+    
 
 
 # In[ ]:
@@ -1457,7 +1537,8 @@ def miscMarkdownGenerations(questionData:   dict,
         header_data = f'# Daily Questions\n\n'
         details     = 'Dates are for the date I completed the ' + \
                       'question so due to the my time zone and how it lines up with ' + \
-                      'UTC, it may be off by a day.\n\n'
+                      'UTC, it may be off by a day.\n\n' + \
+                      get_dailies_month_maps(dailyQuestionData) + '\n\n'
     elif weekly :
         weeklyQuestionData = parseQuestionsForWeeklies(questionData)
     
