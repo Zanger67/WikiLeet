@@ -739,9 +739,8 @@ import calendar
     
     
 
-
-# TODO: complete this
-def get_dailies_month_maps(dailiesDict: Dict[datetime, Question]) -> str :
+# Output: [current month, all months]
+def get_dailies_month_maps(dailiesDict: Dict[datetime, Question]) -> Tuple[str, str] :
     earliest_date = min(dailiesDict.keys())
     
     outputs = []
@@ -773,10 +772,11 @@ def get_dailies_month_maps(dailiesDict: Dict[datetime, Question]) -> str :
             end_month = 12
             
         for month in range(start_month, end_month + 1) :
+            this_month = []
             curr = daily_data_mapped[year][month]
             cal = calendar.month(year, month)
             
-            print(curr.keys())
+            # print(curr.keys())
             
             # for day, question_data in curr.items() :
             #     cal = re.sub(rf'\b{day}\b', f'[{day}](<{question_data["solution"]}>)', cal)
@@ -784,7 +784,7 @@ def get_dailies_month_maps(dailiesDict: Dict[datetime, Question]) -> str :
             cal = cal.split('\n')
             # print(cal)
             # print()
-            outputs.append(f'### {cal[0].strip()}')  # month header
+            this_month.append(f'### {cal[0].strip()}')  # month header
             days = cal[1].split()
             cal = cal[2:]
             
@@ -797,10 +797,11 @@ def get_dailies_month_maps(dailiesDict: Dict[datetime, Question]) -> str :
             
             df = kungfupanda.DataFrame(cal, columns=days)
             
-            outputs.append(df.to_markdown(index=False))
-            outputs.append('\n')
+            this_month.append(df.to_markdown(index=False))
+            this_month.append('\n')
+            outputs.append('\n'.join(this_month))
         
-    return '\n'.join(outputs)
+    return (outputs[-1], '\n'.join(outputs))
     
 
 
@@ -1514,6 +1515,7 @@ def miscMarkdownGenerations(questionData:   dict,
     fileName    = None
     header_data = None
     details     = None
+    tail        = None
 
     if code_length :
         df = byCodeLengthDataDataframe(questionData)
@@ -1535,10 +1537,12 @@ def miscMarkdownGenerations(questionData:   dict,
         fileName    = 'Daily_Questions.md'
         # header_data = f'# [Daily Questions](<{DAILY_URL}>)\n\n'
         header_data = f'# Daily Questions\n\n'
+        curr_month, months = get_dailies_month_maps(dailyQuestionData)
         details     = 'Dates are for the date I completed the ' + \
                       'question so due to the my time zone and how it lines up with ' + \
                       'UTC, it may be off by a day.\n\n' + \
-                      get_dailies_month_maps(dailyQuestionData) + '\n\n'
+                      curr_month + '\n\n'
+        tail        = months
     elif weekly :
         weeklyQuestionData = parseQuestionsForWeeklies(questionData)
     
@@ -1562,6 +1566,9 @@ def miscMarkdownGenerations(questionData:   dict,
         f.write(f'*[Back to top](<../README.md>)*\n\n')
         f.write(details)
         f.write(df.to_markdown(index=False))
+        
+        if tail :
+            f.write(tail)
 
     return output_path
 
