@@ -759,6 +759,8 @@ def get_dailies_month_maps(dailiesDict: Dict[datetime, Question]) -> Tuple[str, 
         curr = curr[date.month]
         
         curr[date.day] = question_data
+        
+    calendar.setfirstweekday(calendar.SUNDAY)
     
     for year in range(earliest_date.year, datetime.now().year + 1) :
         if year == earliest_date.year :
@@ -1537,7 +1539,9 @@ def miscMarkdownGenerations(questionData:   dict,
         fileName    = 'Daily_Questions.md'
         # header_data = f'# [Daily Questions](<{DAILY_URL}>)\n\n'
         header_data = f'# Daily Questions\n\n'
+        
         curr_month, months = get_dailies_month_maps(dailyQuestionData)
+        
         details     = 'Dates are for the date I completed the ' + \
                       'question so due to the my time zone and how it lines up with ' + \
                       'UTC, it may be off by a day.\n\n' + \
