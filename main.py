@@ -1568,7 +1568,7 @@ def miscMarkdownGenerations(questionData:   dict,
         f.write(df.to_markdown(index=False))
         
         if tail :
-            f.write(tail)
+            f.write(f'\n\n{tail}')
 
     return output_path
 
