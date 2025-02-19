@@ -790,6 +790,7 @@ def get_dailies_month_maps(dailiesDict: Dict[datetime, Question]) -> Tuple[str, 
             days = cal[1].split()
             cal = cal[2:]
             
+            # (' ' if len(y) == 1 else '') + 
             cal = [[(y if int(y) not in curr else f'[{y}](<{curr[int(y)]["solution"]}>)') for y in x.split()] for x in cal]
             if len(cal[0]) < 7 :
                 cal[0] = [''] * (7 - len(cal[0])) + cal[0]
@@ -799,7 +800,13 @@ def get_dailies_month_maps(dailiesDict: Dict[datetime, Question]) -> Tuple[str, 
             
             df = kungfupanda.DataFrame(cal, columns=days)
             
-            this_month.append(df.to_markdown(index=False))
+            markdown_cal =df.to_markdown(index=False)
+            
+            col_alignments = sorted(re.findall(r':{1}-{1}-*', markdown_cal), key=lambda x: len(x), reverse=True)
+            for ca in col_alignments :
+                markdown_cal = markdown_cal.replace(ca, '-' * (len(ca) - 1) + ':')
+            
+            this_month.append(markdown_cal)
             this_month.append('\n')
             outputs.append('\n'.join(this_month))
         
