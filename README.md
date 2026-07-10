@@ -83,7 +83,7 @@ jobs:
 
 
 ### Running Locally
-The program can be ran locally once imported as a submodule via running `main.py` or `main.ipynb`.
+The program can be ran locally once imported as a submodule via running `main.py` (all the functionality) or `main.ipynb` (a notebook wrapper that runs the same pipeline one stage at a time).
 
 <!-- Insert instructions for submodule import and the run instructions -->
 
@@ -95,9 +95,9 @@ The program can be ran locally once imported as a submodule via running `main.py
 | [`user_data/`](user_data/)                                                 | A `.gitignore`d folder that will store the last modified date of each question so it doesn't unnecessarily reprocess questions that haven't changed. This only applies to local runs of the script.                                                                                                         |
 | [`Lists/`](Lists/)                                                         | `.txt` files with lists such as the NeetCode150 and Blind75 (see the readme in this folder for more information).                                                                                                                                                   |
 | [`.env`](.env.sample)                                                      | A config file template that you should edit with your own information, namely your LeetCode username.                                                                                                                                  |
-| [`main.ipynb`](main.ipynb)                                                 | The main program that parses all your code and generates the markdowns.                                                                                                                                                                                      |
-| [`main.py`](main.py)                                                       | The exported version of `main.ipynb` for easier running (type `python main.py`).                                                                                                                                                                             |
-| [`parse_official_question_data.ipynb`](parse_official_question_data.ipynb) | A helper script that I use to reprocess the `.json` data (you can ignore).                                                                                                                                                                                   |
+| [`main.py`](main.py)                                                       | The main program that parses all your code and generates the markdowns (type `python main.py`; see its docstring for the flags).                                                                                                                             |
+| [`main.ipynb`](main.ipynb)                                                 | A thin notebook wrapper around `main.py` for running the pipeline locally, one stage at a time.                                                                                                                                                              |
+| [`env_config.py`](env_config.py)                                           | Loads the `.env` files and resolves every path the generator uses.                                                                                                                                                                                           |
 | [`LeetCode Record - Publix.xlsx`](<LeetCode Record - Publix.xlsx>)         | The spreadsheet I use to track my progress with cumulative graphs and whatnot (extra)                                                                                                                                                                        |
 
 ## EXAMPLES

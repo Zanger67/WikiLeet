@@ -1,228 +1,89 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# Data management imports
+'''
+WikiLeet markdown generator.
 
-# In[8]:
+Parses a folder of LeetCode solution files and generates a wiki-like set of
+markdown files: one page per question, grouping pages (by topic, difficulty,
+recency, code length, daily/weekly challenges), and the primary README.md of
+the repo that imported WikiLeet as a submodule.
 
+Run as a script:
 
-import pandas as kungfupanda                    # pandas for data manipulation and markdown
-from pandas import DataFrame                    # export
+    python main.py [-r] [-n] [-g] [-user NAME] [-dir FOLDER]
 
-import argparse                                 # For command line arguments when calling py script with flags
-import pickle                                   # for saving/loading json records and file 
-                                                # modification date history
+    -r     : Recompile every markdown file regardless of whether its source
+             code files were modified or not
+    -n     : Don't use the previously stored modification dates and don't
+             store the new ones (in effect the same as `-r` but stateless).
+             Primarily for use with GitHub Actions.
+    -g     : Trace each file's creation/modification dates through the git
+             log instead of the filesystem. GitHub Actions checkouts reset
+             filesystem dates, so CI runs need this.
+             WARNING: slow when run locally; fast on GitHub Actions.
+    -user  : LeetCode username (overrides LEETCODE_USERNAME from .env)
+    -dir   : Solutions directory name (overrides QUESTIONS_PATH_FROM_README)
+
+Or drive the pipeline stage-by-stage from a notebook / another module (this
+is exactly what main.ipynb does -- see `main()` for the canonical order):
+
+    import main, env_config as config
+    config.load_environment()
+    config.init()
+    main.main()
+'''
+
+import argparse
+import calendar
 import json
+import pickle
+import re
+import subprocess
+import sys
 
+from collections import defaultdict
+from datetime import datetime, timedelta
+from functools import cache
+from os import chdir, environ, listdir, mkdir, stat
+from os.path import abspath, dirname, getctime, getmtime, isdir, isfile, join
+from typing import Dict, List, NamedTuple, Set, Tuple
+
+import pandas as kungfupanda                    # pandas for dataframe to markdown exports
+from pandas import DataFrame
+from tqdm.auto import tqdm                      # progress bars (notebook- and cli-aware)
+
+import env_config as config
 from questionDataclass import questionDataclass as Question
 
 
-# OS and directory management imports
-
-# In[9]:
-
-
-from os import listdir                          # for file retrieval and path calculations
-from os.path import isfile, join
-from os import stat
-
-from os.path import isdir                       # for creation of topic markdown folder if 
-from os import mkdir                            # not present
-
-from os import getcwd                           # gets current working DIR for calculating git 
-                                                # root of submissions folder 
-
-from os import chdir                            # for changing the working directory to ensure
-from os.path import abspath, dirname            # relative paths used are from this script's
-import sys                                      # location rather than the calling location
-                                                # e.g. if you call `python someFolder/main.py`
-                                                #      then it will still work.
-
-
-# Environment variable imports + file log and creation time imports
-
-# In[10]:
-
-
-from os import getenv, environ                  # for environment variables
-from dotenv import load_dotenv, find_dotenv     # for config purposes (.env file)
-
-import subprocess                               # tracing git log history for ctimes and mtimes
-
-
-# In[11]:
-
-
-from os.path import getmtime, getctime          # retreiving file creation/modification times
-from datetime import datetime, timedelta
-import time
-
-
-# QOL and anti-reundancy imports
-
-# In[13]:
-
-
-from typing import Set, Dict, List, Tuple       # misc. QOL imports
-from collections import defaultdict
-from icecream import ic                         # for debugging / outputs
-
-import re                                       # for regex file name matching / question number matching
-from functools import cache                     # for redundancy protection
-
-# TQDM import done separately below after checking if this is a .py or .ipynb file
-
-
-# # Script Configuration
-# #### `.env` variables and `working directories`
-# 1. Loads `env` variables for reference.
-#     1. Tries to retrieve it from `../` if found (prioritizing template).
-#     2. If failure, use the `.env` found in the current script directory (in the updater).
-# 2. If is a script run, denotes it as such for script flag references and ensures working directory is the script's location rather than the calling directory.
-
-# In[14]:
-
-
-# loading env variables
-print('Default .env activated from script directory (.readme_updater/)')
-load_dotenv(find_dotenv(), override=True)
-
-if '.env' in listdir('../') :
-    print('.env found in ../ directory. Overriding default...')
-    load_dotenv(find_dotenv('../.env'), override=True)
-
-
-# In[15]:
-
-
-# NOTE: if the script is being run from a jupyter notebook, then it should
-# already be in the correct directory.
-IS_NOTEBOOK = True
-try:
-    if 'ipykernel' not in sys.modules:
-        print('Working directory being set to script location.')
-        IS_NOTEBOOK = False
-        chdir(dirname(abspath(__file__)))
-    else :
-        print('Working directory already set to script location. No need for adjustment')
-except NameError:
-    print('NameError')
-    pass
-
-
-# In[ ]:
-
-
-import env_config as config
-
-
-# In[ ]:
-
-
-# TQDM import based off if current running script is a jupyter notebook
-# or a python script
-
-if IS_NOTEBOOK :
-    print('Importing tqdm.notebook')
-    from tqdm.notebook import tqdm
-else :
-    print('Importing tqdm (non-notebook)')
-    from tqdm import tqdm
-
-
-# In[ ]:
-
-
-# README_ABS_DIR will get confirmed in if name==main prior to running
-README_ABS_DIR      = getcwd().replace('\\', '/')
-NOTEBOOK_ABS_DIR    = README_ABS_DIR
-MAIN_DIRECTORY      = NOTEBOOK_ABS_DIR[NOTEBOOK_ABS_DIR.rfind('/')+1:]
-
-print(f'{NOTEBOOK_ABS_DIR = }')
-
-
-# In[ ]:
-
-
-'''
-Configed separately so that values are static and global in all cases with less 
-chance of error e.g. forgetting the global keyboard declaration.
-
-Also allows for us to establish the values dependent on the .env AFTER
-we have a chance to modify them e.g. if there's a user input for a different 
-directory for solution files.
-'''
-def set_env_linked_constants() -> None :
-    config.README_PATH                      = getenv('README_PATH')
-    config.LEETCODE_PATH_FROM_README        = getenv('QUESTIONS_PATH_FROM_README')
-    config.LEETCODE_PATH_REFERENCE          = join(config.README_PATH, 
-                                                   config.LEETCODE_PATH_FROM_README)
-    
-    config.QUESTION_DATA_FOLDER             = join(getenv('SUBMODULE_DATA_PATH'), 
-                                                   getenv('LEETCODE_QUESTION_DETAILS'))
-    config.SUBMODULE_DATA_PATH              = getenv('SUBMODULE_DATA_PATH')    
-    
-    config.HISTORY_PATH                     = join(getenv('USER_DATA_PATH'), 
-                                                   getenv('FILE_MODIFICATION_NAME'))
-    
-    config.DAILIES_DATA_PATH                = join(getenv('SUBMODULE_DATA_PATH'), 
-                                                   getenv('DAILIES_FOLDER'), 
-                                                   getenv('DAILIES_FILE'))
-    config.WEEKLIES_DATA_PATH               = join(getenv('SUBMODULE_DATA_PATH'), 
-                                                   getenv('DAILIES_FOLDER'), 
-                                                   getenv('WEEKLIES_FILE'))
-
-    config.LISTSDIR                         = getenv('LISTS_LOCATION')
-    config.QUESTIONS_FOLDER_FROM_README     = getenv('QUESTIONS_PATH_FROM_README')
-    config.QUESTIONS_FOLDER                 = join(config.README_PATH, 
-                                                   config.QUESTIONS_FOLDER_FROM_README)
-
-    config.MARKDOWN_PATH                    = getenv('QUESTION_MARKDOWNS_PATH_FROM_README')
-    config.MARKDOWN_TO_SUBMISSIONS          = '../' * config.MARKDOWN_PATH.count('/') + \
-                                              config.QUESTIONS_FOLDER_FROM_README
-
-    config.QUESTION_DATA_FOLDER_PATH        = getenv('QUESTION_DATA_PATH')
-    config.QUESTION_TOPICS_FILE             = getenv('LEETCODE_QUESTION_TOPICS')
-    config.QUESTION_DETAILS_FILE            = getenv('LEETCODE_QUESTION_DETAILS')
-
-    config.BY_TOPIC_FOLDER_PATH             = getenv('TOPIC_MARKDOWN_PATH_IN_MARKDOWNS_FOLDER')
-    
-    config.TOPIC_FOLDER                     = getenv('TOPIC_MARKDOWN_PATH_IN_MARKDOWNS_FOLDER')
-
-    # For each topic case
-    config.NOTEBOOK_PATH                    = join(config.README_PATH, 
-                                                   config.MARKDOWN_PATH, 
-                                                   config.TOPIC_FOLDER)
-
-    # For the overal hosting markdown
-    config.OVERALL_FILE_NOTEBOOK_PATH       = join(config.README_PATH, 
-                                                   config.MARKDOWN_PATH, 
-                                                   'Topics.md')
-    config.OVERALL_FILE_README_PATH         = join(config.MARKDOWN_PATH, 
-                                                   'Topics.md')
-
-    config.DIFFICULTY_MARKDOWNS_PATH        = config.MARKDOWN_PATH
-    config.DAILY_URL                        = ''
-
-
-# ## Helper Methods
-# 
-# AddCase $\rightarrow$ takes information for a new question file and formats it accordingly for a row.
-# 
-# UpdateLanguage $\rightarrow$ if a question already has a solution, this is called instead to insert the new file link to the existing row details.
-
-# In[ ]:
-
-
-_ALL_GIT_CM_TIMES = {}
+# ============================================================================ #
+#  Run state
+# ============================================================================ #
+
+# When True, file creation/modification dates are traced through the git log
+# instead of the filesystem (see the -g flag). Needed under GitHub Actions
+# where the checkout resets every file's filesystem dates to "now".
 USE_GIT_DATES = False
 
-with open('question_data/language_equivs.json') as f :
-    LANGUAGE_EQUIVS = json.load(f)
+# README-relative path -> (creation, modification) datetimes bulk-parsed from
+# the git log when USE_GIT_DATES is on. Filled by load_git_timestamps().
+_git_file_times: Dict[str, Tuple[datetime, datetime]] = {}
 
+# Date of the oldest tracked solution file -- daily/weekly challenges from
+# before this date can't have been completed on time, so they are skipped.
+# Stays at "now" (i.e. no relevant challenges) until git dates are parsed.
+_oldest_file_date = datetime.now()
+
+
+# ============================================================================ #
+#  Constants
+# ============================================================================ #
+
+# Column headers for every generated question table
 COLUMNS = [
             '#',
-            'Title', 
+            'Title',
             'Level',
             'Cats',
             'Solution',
@@ -230,1410 +91,1021 @@ COLUMNS = [
             'Date Complete'
           ]
 
-TYPE_CLARIFICATION = {
-                      '#':                  int,
-                      'Title':              str, 
-                      'Level':              str,
-                      'Cats':               str,
-                      'Solution':           str,
-                      'Languages':          str,
-                      'Date Complete':      str
-                    }
+QUESTION_NO_PATTERN = re.compile(r'\d{1,4}')
+
+# Grace periods for counting a solve as an on-time daily/weekly challenge
+# (allows for late commits and timezone offsets vs. UTC)
+DAILY_LEEWAY  = timedelta(days=1, hours=12)
+WEEKLY_LEEWAY = timedelta(days=8)
 
 
-# In[ ]:
+@cache
+def language_equivs() -> Dict[str, str] :
+    '''File extension -> markdown code-block language name.'''
+    with open(config.LANGUAGE_EQUIVS_PATH) as f :
+        return json.load(f)
 
 
-def individualCTimeViaGit(cmd: List[str]) -> Tuple[datetime, datetime] :
+# ============================================================================ #
+#  File creation/modification dates
+# ============================================================================ #
+
+def _parse_git_log_times(cmd: List[str]) -> Tuple[datetime, datetime] :
+    '''
+    Runs a `git log --format=%ct` command from the README's directory and
+    returns the (creation, modification) datetimes of the file it targets.
+    '''
     process = subprocess.Popen(cmd,
                                shell=False,
                                stdin=None,
                                stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE)
-    result        = process.stdout.readlines()
-    modifiedTimes = []
-    
-    for line in result:
-        temp = line.decode("utf-8").replace('\n', '')
-    
-        # In case of a redundant '\n' at the end of an output
-        if temp :
-            modifiedTimes.append(temp)
-    
+                               stderr=subprocess.PIPE,
+                               cwd=config.README_PATH)
+
+    # One unix timestamp per commit touching the file (ignoring blank lines)
+    commit_times = [line.decode('utf-8').strip()
+                    for line in process.stdout.readlines()
+                    if line.strip()]
+
     try :
-        creationDate = datetime.strptime(time.ctime(int(min(modifiedTimes))), '%a %b %d %H:%M:%S %Y')
-        modifiedDate = datetime.strptime(time.ctime(int(max(modifiedTimes))), '%a %b %d %H:%M:%S %Y')
-        
-    except ValueError as ve:
-        print(f'Error in parsing {cmd}')
-        print(f'{modifiedTimes}')
+        creation_date = datetime.fromtimestamp(int(min(commit_times)))
+        modified_date = datetime.fromtimestamp(int(max(commit_times)))
+    except ValueError as ve :
+        print(f'Error in parsing git log dates via {cmd}')
+        print(f'{commit_times}')
         print(ve)
-        exit()
-    
-    return (creationDate, modifiedDate)
+        sys.exit(1)
 
-
-# In[ ]:
-
-
-def getAllCTimesViaGit(paths: List[str]) -> Dict[str, Tuple[datetime, datetime]] :
-    '''
-    WARNING: DO NOT USE LOCALLY. SLOW IF RAN LOCALLY.
-    
-    GITHUB ACTIONS ARE ABLE TO PERFORM THIS QUICKLY (~10s for the script for ~700 files) 
-    BUT A LOCAL RUN OF `-g` CAN TAKE UPWARDS OF 10 MINUTES FOR THE SAMEN NUMBER OF FILES.
-
-    To avoid having to constantly swap directories, this function parses all the ctimes and mtimes 
-    in one block of time. This gets activated with the `-g` flag. Default otherwise is to use the 
-    regular `getctime` and `getmtime` functions locally which is much much faster. This only exists 
-    to compensate for the inability for ctime and mtime checking with git actions.
-    '''
-    print(f'Beginning parsing of git logs for file creation and modification dates...')
-    print(f'Script path: {getcwd() = }')
-    chdir('../')
-    print(f'README path: {getcwd() = }')
-
-    cmd = r"git log -M --format=%ct --reverse --".split()
-    # cmd = r"git log -M --follow --format=%ct --reverse --".split()
-    # cmd = r"git log --follow --format=%ct --reverse --".split()
-    output = {}
-    
-    oldest_date = datetime.now()
-
-    # if getenv("GITHUB_ACTIONS") == 'true' :
-    #     print('\n')
-    #     print('/' + '=' * 15 + '\\')
-    #     print(' ', end='')
-    #     pqBarsPrinted = 0
-    #     for i, path in enumerate(paths) :
-    #         path = join(LEETCODE_PATH_FROM_README, path)
-    #         output[path] = individualCTimeViaGit(cmd + [path])
-            
-    #         if output[path][0] < oldest_date :
-    #             oldest_date = output[path][0]
-            
-    #         curChunk = int((i / len(paths)) * 15)
-    #         if curChunk > pqBarsPrinted :
-    #             print('=' * (curChunk - pqBarsPrinted), end='')
-    #             pqBarsPrinted = curChunk
-                
-    #     print((15 - pqBarsPrinted) * '=', '\n\n')
-    # else :
-    
-    
-    with tqdm(total=len(paths)) as pbar :
-    # with tqdm(total=len(paths), position=0, leave=True) as pbar :
-        for i, path in enumerate(paths) :
-            path = join(config.LEETCODE_PATH_FROM_README, path)
-            output[path] = individualCTimeViaGit(cmd + [path])
-            
-            if output[path][0] < oldest_date :
-                oldest_date = output[path][0]
-            
-            pbar.update(1)
-
-    config._oldest_date = oldest_date.replace(hour=0, minute=0, second=0, microsecond=0)
-
-    # Usually I'd avoid using global for this but this is a personal project so it should be fine.
-    _ALL_GIT_CM_TIMES.update(output)
-    print(f'{_ALL_GIT_CM_TIMES = }')
-    
-    chdir(MAIN_DIRECTORY)
-    return output
-
-
-# In[ ]:
+    return (creation_date, modified_date)
 
 
 @cache
-def getCtimesMtimesGitHistory(path: str) -> Tuple[datetime, datetime] :
+def _git_history_times(path: str) -> Tuple[datetime, datetime] :
     '''
-    WARNING: DO NOT USE LOCALLY. SLOW IF RAN LOCALLY RELATIVE TO THE REGULAR CTIME FUNCTION.
+    Creation/modification dates of a single file traced through the git log.
 
-    IF RUNNING LOCALLY, RUN (getCtimeMtimesMain) I.E. WITHOUT THE `-g` FLAG.
-
-    The cost for a single file isn't significant however when you reach ~100+ files, 
-    the cumulative wait can go into the minutes compared to the seconds it would take 
-    with the regular `getctime` and `getmtime` functions (without the `-g` flag)
+    WARNING: slow locally relative to the filesystem dates; prefer running
+    without the `-g` flag when local filesystem dates are trustworthy.
     '''
-    path = path[path.find('/') + 1:]
-    chdir('../')
-    cmd = r"git log --follow --format=%ct --reverse --".split() + [f'{path}']
-
-    cmDates = individualCTimeViaGit(cmd)
-
-    chdir(MAIN_DIRECTORY)
-
-    return cmDates
-
-
-# In[ ]:
+    path = path[path.find('/') + 1:]        # script-relative -> repo-relative
+    cmd = 'git log --follow --format=%ct --reverse --'.split() + [path]
+    return _parse_git_log_times(cmd)
 
 
 @cache
-def getCtimeMtimesMain(path: str) -> Tuple[datetime, datetime] :
-    '''
-    Returns the a tuple containing the datetime objs of 
-    (create date and time, modification date and time)
+def _filesystem_times(path: str) -> Tuple[datetime, datetime] :
+    '''Creation/modification dates of a file per the filesystem metadata.'''
+    creation_date     = datetime.fromtimestamp(int(getctime(path)))
+    modification_date = datetime.fromtimestamp(int(getmtime(path)))
 
-    @param useGitDates: bool = False
-        If true, it will track the creation/modification dates of the file 
-        according to the git history. This is mainly to counter the issue in 
-        GitHub actions where the file creation date is the time of the action.
-    '''
-    
-    if USE_GIT_DATES :
-        return getCtimesMtimesGitHistory(path)
-    
-    creation_date = time.ctime(getctime(path))
-    modification_date = time.ctime(getmtime(path))
-
-    creation_date = datetime.strptime(creation_date, "%a %b %d %H:%M:%S %Y")
-    modification_date = datetime.strptime(modification_date, "%a %b %d %H:%M:%S %Y")
-
-    # I've sometimes encountered weird meta data issues so just as a precaution
+    # Metadata occasionally reports creation after modification; normalize
     if creation_date > modification_date :
         return (modification_date, creation_date)
-    
     return (creation_date, modification_date)
 
 
-# In[ ]:
-
-
-def getCtimeMtimes(path: str, 
-                   *, 
-                   preCalculated: Dict[str, Tuple[datetime, datetime]] = None) -> Tuple[datetime, datetime] :
-    # Due to readme realtive and script relative paths
-    readme_path = path if ('../' not in path) else path[path.find('../') + len('../'):]
-    if _ALL_GIT_CM_TIMES and readme_path in _ALL_GIT_CM_TIMES :
-        return _ALL_GIT_CM_TIMES[readme_path]
-    
-    if preCalculated and readme_path in preCalculated :
-        return preCalculated[readme_path]
-
-    return getCtimeMtimesMain(path)
-
-
-# In[ ]:
-
-
-def addCase(level:              str,
-            number:             int, 
-            title:              str, 
-            categories:         Set[str],
-            language:           str,
-            notebook_path:      str,
-            readme_path:        str,
-            fileLatestTimes:    dict,
-            contestTitle:       str=None,
-            contestQNo:         str=None) -> dict :
+def get_file_times(path: str) -> Tuple[datetime, datetime] :
     '''
-    Takes the data found on a question not encountered before and 
-    converts it into a callable dictionary with all the relevant 
-    information
-
-    ### Parameters (Required) :
-    level : str
-        Difficulty indicator of the question (e, m, h)
-    number : int
-        The official LeetCode question number
-    title : str
-        The title of the question (colloquial name)
-    categories : Set[str]
-        The categories the question falls under (e.g. Contest, Daily, etc.)
-    language : str
-        The programming language used to solve the question
-    notebook_path : str
-        The path from the main.py/ipynb script to the code file in question
-    readme_path : str
-        The path from the README.md file to be exported to the code file in question
-    fileLatestTimes : dict
-        A dictionary containing the latest modification times of all files
-        in the repository
-    
-    ### Parameters (Optional) :
-    contestTitle : str
-        The title of the contest the question was a part of if applicable
-    contestQNo : str
-        The question number in the contest if applicable (e.g. q1, q2, etc.)
-
-    ### Returns :
-    output : dict
-        A dictionary containing all the relevant information for the question
-        to be used in the final output
+    Returns the (creation, modification) datetimes of a file, preferring the
+    bulk git-log results when they were parsed (the `-g` flag).
     '''
+    # Bulk git results are keyed by README-relative paths while `path` is
+    # script-relative -- strip the leading '../'
+    readme_path = path if '../' not in path else path[path.find('../') + len('../'):]
+    if readme_path in _git_file_times :
+        return _git_file_times[readme_path]
 
-    creation_date, modification_date = getCtimeMtimes(notebook_path)
-    fileLatestTimes[readme_path]     = modification_date
+    if USE_GIT_DATES :
+        return _git_history_times(path)
+    return _filesystem_times(path)
 
-    try :
-        fileSize = stat(notebook_path).st_size
-    except FileNotFoundError as fnfe :
-        fileSize = 0
-        print(fnfe)
-    
 
-    if not categories :
-        categories = set()
+# ============================================================================ #
+#  Submission file discovery
+# ============================================================================ #
 
+# Files with these extensions hold notes/context for a question rather than a
+# solution; files with no extension at all are treated the same way.
+CONTEXT_EXTENSIONS = ('.txt', '.md')
+
+
+def _is_code_file(file_name: str) -> bool :
+    return ('.' in file_name
+            and not file_name.endswith(CONTEXT_EXTENSIONS)
+            and not file_name.endswith('.gitignore'))
+
+
+def _is_context_file(file_name: str) -> bool :
+    return ((file_name.endswith(CONTEXT_EXTENSIONS) or '.' not in file_name)
+            and not file_name.endswith('.gitignore'))
+
+
+class SubmissionFiles(NamedTuple) :
+    '''Every submission-folder file relevant to the generator.'''
+    code_files:     List[str]                   # file names in the submissions folder
+    contest_files:  List[Tuple[str, str]]       # (contest folder, file name)
+    context_files:  List[str]                   # notes files, incl. contest-folder ones
+
+
+def discover_submission_files() -> SubmissionFiles :
+    '''Scans the submissions folder for solution, contest, and context files.'''
+    contest_folders = [x for x in listdir(config.SUBMISSIONS_DIR)
+                       if not isfile(join(config.SUBMISSIONS_DIR, x))]
+
+    code_files = [x for x in listdir(config.SUBMISSIONS_DIR)
+                  if isfile(join(config.SUBMISSIONS_DIR, x)) and _is_code_file(x)]
+
+    contest_files = []
+    for folder in contest_folders :
+        contest_files.extend(
+            (folder, name) for name in listdir(join(config.SUBMISSIONS_DIR, folder))
+            if isfile(join(config.SUBMISSIONS_DIR, folder, name)) and _is_code_file(name))
+
+    context_files = [x for x in listdir(config.SUBMISSIONS_DIR)
+                     if isfile(join(config.SUBMISSIONS_DIR, x)) and _is_context_file(x)]
+    for folder in contest_folders :
+        context_files.extend(
+            join(folder, name) for name in listdir(join(config.SUBMISSIONS_DIR, folder))
+            if isfile(join(config.SUBMISSIONS_DIR, folder, name)) and _is_context_file(name))
+
+    code_files.sort()
+    contest_files.sort()
+
+    print(f'Total of {len(code_files)} files found.')
+    print(f'Total of {len(contest_files)} contest files found.')
+
+    return SubmissionFiles(code_files, contest_files, context_files)
+
+
+def load_git_timestamps(files: SubmissionFiles) -> None :
+    '''
+    Bulk-parses every submission file's creation/modification dates from the
+    git log (the `-g` flag), populating `_git_file_times` for get_file_times()
+    and `_oldest_file_date` for the daily/weekly challenge matching.
+
+    WARNING: DO NOT USE LOCALLY -- parsing the git log per file can take 10+
+    minutes for ~700 files locally, while GitHub Actions does it in ~10s.
+    Local runs get the same dates far faster from the filesystem metadata.
+    '''
+    global _oldest_file_date
+
+    paths = (files.context_files
+             + files.code_files
+             + [join(folder, name) for folder, name in files.contest_files])
+
+    print('Beginning parsing of git logs for file creation and modification dates...')
+    cmd = 'git log -M --format=%ct --reverse --'.split()
+    oldest_date = datetime.now()
+
+    for path in tqdm(paths) :
+        readme_path = join(config.SUBMISSIONS_PATH_FROM_README, path)
+        _git_file_times[readme_path] = _parse_git_log_times(cmd + [readme_path])
+        oldest_date = min(oldest_date, _git_file_times[readme_path][0])
+
+    _oldest_file_date = oldest_date.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+# ============================================================================ #
+#  Question records
+# ============================================================================ #
+# Each parsed question lives in the `question_data` dict as a plain dict of
+# details (dates, categories, solution file paths per language, ...) keyed by
+# its official LeetCode question number.
+
+def _difficulty_name(level: str) -> str :
     match level[0].lower() :
         case 'e' :
-            level = 'Easy'
-        case 'm' : 
-            level = 'Medium'
+            return 'Easy'
+        case 'm' :
+            return 'Medium'
         case 'h' :
-            level = 'Hard'
-        case _ :
-            level = 'Unknown'
-
-    output = {
-                'level':                level,
-                'number':               number,
-                'title':                title, 
-                'categories':           categories,
-                'contestTitle':         contestTitle,
-                'contestQNo':           contestQNo,
-                'date_done':            creation_date,          # First time completed
-                'date_modified':        modification_date,      # Most recent date
-                'solution':             '',
-                'solutions':            {language: [readme_path]},
-                'languages':            set([language]),
-                'bytes':                fileSize
-             }
-
-    return output
+            return 'Hard'
+    return 'Unknown'
 
 
-# In[ ]:
+def _file_size(path: str) -> int :
+    try :
+        return stat(path).st_size
+    except FileNotFoundError as fnfe :
+        print(fnfe)
+        return 0
 
 
-def updateQuestion(orig:               dict, 
-                   *,
-                   language:           str,
-                   categories:         Set[str],
-                   notebook_path:      str,
-                   readme_path:        str,
-                   fileLatestTimes:    dict,
-                   contestTitle:       str=None,
-                   contestQNo:         str=None) -> dict :
-    '''
-    Takes question data of a question that's already been encountered and 
-    updates the relevant dictionary with the new information found. Similar 
-    to addCase but for questions that have already been encountered.
+def create_question_entry(*,
+                          number:        int,
+                          title:         str,
+                          level:         str,
+                          categories:    Set[str],
+                          language:      str,
+                          readme_path:   str,
+                          file_times:    Tuple[datetime, datetime],
+                          file_size:     int,
+                          contest_title: str = None,
+                          contest_q_no:  str = None) -> dict :
+    '''Builds the record for a question not encountered before.'''
+    creation_date, modification_date = file_times
 
-    ### Parameters :
-    orig : dict
-        The original dictionary containing all the relevant information from previous encounters
-    
-    All other parameters are the same as addCase and are optional in order to update them.
-        
-    ### Returns :
-    orig : dict
-        The updated dictionary containing all the relevant information from previous encounters
-    '''
-    
-    # Another question file found
-    if language and language not in orig['languages'] :
-        orig['languages'].add(language)
+    return {
+        'level':            _difficulty_name(level),
+        'number':           number,
+        'title':            title,
+        'categories':       categories or set(),
+        'contestTitle':     contest_title,
+        'contestQNo':       contest_q_no,
+        'date_done':        creation_date,         # first time completed
+        'date_modified':    modification_date,     # most recent update
+        'solution':         '',                    # generated markdown file name
+        'solutions':        {language: [readme_path]},
+        'languages':        {language},
+        'bytes':            file_size,
+    }
 
-    if contestTitle :
-        orig['contestTitle'] = contestTitle
-        
-    if contestQNo :
-        orig['contestQNo'] = contestQNo
-          
+
+def update_question_entry(entry: dict,
+                          *,
+                          language:      str,
+                          categories:    Set[str],
+                          readme_path:   str,
+                          file_times:    Tuple[datetime, datetime],
+                          file_size:     int,
+                          contest_title: str = None,
+                          contest_q_no:  str = None) -> dict :
+    '''Folds another solution file into an already-encountered question.'''
+    entry['languages'].add(language)
+
+    if contest_title :
+        entry['contestTitle'] = contest_title
+    if contest_q_no :
+        entry['contestQNo'] = contest_q_no
     if categories :
-        orig['categories'] |= categories
+        entry['categories'] |= categories
 
-    if notebook_path and readme_path :
-        creation_date, modification_date = getCtimeMtimes(notebook_path)
-        
-        if creation_date < orig['date_done'] :
-            orig['date_done'] = creation_date
-        if modification_date > orig['date_modified'] :
-            orig['date_modified'] = modification_date
-            fileLatestTimes[readme_path] = modification_date
+    creation_date, modification_date = file_times
+    entry['date_done']     = min(entry['date_done'], creation_date)
+    entry['date_modified'] = max(entry['date_modified'], modification_date)
 
-        if language not in orig['solutions'] :
-            orig['solutions'][language] = []
-        orig['solutions'][language].append(readme_path)
+    entry['solutions'].setdefault(language, []).append(readme_path)
+    entry['bytes'] += file_size
 
-        try :
-            fileSize = stat(notebook_path).st_size
-        except FileNotFoundError as fnfe :
-            fileSize = 0
-            print(fnfe)
-        orig['bytes'] += fileSize
-  
-    return orig
+    return entry
 
 
-# # Pickle Processes
-# 
-
-# In[ ]:
-
-
-@cache
-def retrieveQuestionDetails() -> dict :
+def parse_case(file_name:           str,
+               question_data:       dict,
+               file_latest_times:   dict,
+               reprocess_markdown:  Set[int],
+               question_details:    Dict[int, Question],
+               *,
+               sub_folder:          str = '',
+               contest:             str = None) -> bool :
     '''
-    Retrieves the question details (i.e. title, acRates, difficulties, etc.) from
-    the relevant `.pkl` file containing parsed official LeetCode json data.
-
-    ### Returns :
-    questionDetailsDict : dict[int, details]
-        A dictionary containing the question details matched to the question's assigned number
+    Parses one solution file into `question_data`, creating or updating the
+    question's record. Questions whose files are newer than the stored
+    history in `file_latest_times` are queued in `reprocess_markdown`.
     '''
+    path = join(config.SUBMISSIONS_PATH_FROM_README, sub_folder, file_name).replace('\\', '/')
 
-    print(f'{getcwd() = }')
-    
-    print(f'{listdir(config.SUBMODULE_DATA_PATH) = }')
-    print(f'Question details path: {config.QUESTION_DATA_FOLDER = }')
-
-    if not isfile(config.QUESTION_DATA_FOLDER) :
-        print('\nError in parsing official question data. leetcode.pkl not found. Exiting...')
-        print()
-        exit()
-    else : 
-        print('\nFiles found. Importing now...\n')
-
-
-    # schema: key=int(questionNumber)   val=(title, titleSlug, paidOnly, difficulty, acRate)
-    with open(join(config.QUESTION_DATA_FOLDER), 'rb') as fp:
-        questionDetailsDict = pickle.load(fp)
-
-    print(f'{questionDetailsDict = }')
-
-    return questionDetailsDict
-
-
-# In[ ]:
-
-
-def writeRecentFileTimes(fileLatestTimes: dict) -> bool :
-    '''Pickles the newly found most recent modification times of each question for reference in future runs'''
-    
-    with open(config.HISTORY_PATH, 'wb') as fp:
-        pickle.dump(fileLatestTimes, fp)
-
-    return True
-
-
-# In[ ]:
-
-
-def getRecentFileTimes() -> dict :
-    '''Retrieves the pickled data from previous cases of `writeRecentFileTimes()`'''
-
-    if isfile(config.HISTORY_PATH) :
-        with open(config.HISTORY_PATH, 'rb') as fp:
-            return pickle.load(fp)
-        
-    return {}
-
-
-# # Daily and Weekly Challenges
-
-# In[ ]:
-
-
-def getDailies(firstDate: datetime = None) -> List[Tuple[datetime, int]] :
-    '''
-    Retrieves the daily questions from the official LeetCode json data
-    and returns them as a set of strings
-
-    ### Returns :
-    dailies : List[Tuple[date, questionNo]]
-    '''
-    if not firstDate :
-        firstDate = config._oldest_date
-    
-    print('Oldest date found:', firstDate)
-    
-    with open(config.DAILIES_DATA_PATH, 'rb') as fp:
-        dailies = json.load(fp)
-    
-    output = []
-
-    for k in list(dailies.keys()) :
-        newK = datetime.strptime(k, '%Y-%m-%d')
-        if newK < firstDate :
-            continue
-
-        output.append((newK, int(dailies[k]['question']['questionFrontendId'])))
-
-    return sorted(output, key=lambda x: x[0], reverse=True)
-
-
-# In[ ]:
-
-
-def getWeeklies(firstDate: datetime = None) -> List[Tuple[datetime, int]] :
-    '''
-    Retrieves the weekly premium questions from the official LeetCode json data
-    and returns them as a set of strings
-
-    ### Returns :
-    weeklies : List[Tuple[date, questionNo]]
-    '''
-    if not firstDate :
-        firstDate = config._oldest_date
-    
-    print('Oldest date found:', firstDate)
-    
-    with open(config.WEEKLIES_DATA_PATH, 'rb') as fp:
-        weeklies = json.load(fp)
-    
-    output = []
-
-    for k in list(weeklies.keys()) :
-        newK = datetime.strptime(k, '%Y-%m-%d')
-        if newK < firstDate :
-            continue
-
-        output.append((newK, int(weeklies[k]['question']['questionFrontendId'])))
-
-    return sorted(output, key=lambda x: x[0], reverse=True)
-
-
-# In[ ]:
-
-
-def parseQuestionsForDailies(questionData: dict) -> Dict :
-    '''
-    Parses the official LeetCode json data for the daily and weekly premium questions
-    and returns them as a dictionary of question numbers to question objects
-
-    ### Returns :
-    dailies : Dict[int, Question]
-        A dictionary containing the daily questions as question objects
-    weeklies : Dict[int, Question]
-        A dictionary containing the weekly premium questions as question objects
-    '''
-    dailies = getDailies()
-    dailiesDict = {}
-
-    # I've added ~12 hours of leeway due to potential to forget to commit
-    for date, qNo in dailies :
-        if qNo in questionData and questionData[qNo]['date_done'] <= date + timedelta(days=1, hours=12) :
-            dailiesDict[date] = questionData[qNo].copy()
-            dailiesDict[date]['date_done'] = date
-            questionData[qNo]['categories'].add('Daily')
-
-    return dailiesDict
-
-
-# TODO: calendar that's clickable to go to that daily question's page
-# ISSUE: markdown will negate any spacing by the calendar package 
-#        so we have to export to a markdown table
-
-import calendar
-
-# Input data dict for the day of that month and the string it should be instead
-# def calendar_template_maker(year: int, month: int, input_data: Dict[int, str]) -> str :
-#     output_cal = []
-    
-#     month_range = calendar.monthrange(year, month)
-#     first_day = calendar.
-    
-    
-
-# Output: [current month, all months]
-def get_dailies_month_maps(dailiesDict: Dict[datetime, Question]) -> Tuple[str, str] :
-    earliest_date = min(dailiesDict.keys())
-    
-    outputs = []
-    
-    # Sorted by year then month then day
-    
-    daily_data_mapped = {}
-    for date, question_data in dailiesDict.items() :
-        curr = daily_data_mapped
-        if date.year not in curr :
-            daily_data_mapped[date.year] = {}
-        curr = daily_data_mapped[date.year]
-        
-        if date.month not in curr :
-            curr[date.month] = {}
-        curr = curr[date.month]
-        
-        curr[date.day] = question_data
-        
-    calendar.setfirstweekday(calendar.SUNDAY)
-    
-    for year in range(earliest_date.year, datetime.now().year + 1) :
-        if year == earliest_date.year :
-            start_month = earliest_date.month
-        else :
-            start_month = 1
-        
-        if year == datetime.now().year :
-            end_month = datetime.now().month
-        else :
-            end_month = 12
-            
-        for month in range(start_month, end_month + 1) :
-            this_month = []
-            curr = daily_data_mapped[year][month]
-            cal = calendar.month(year, month)
-            
-            # print(curr.keys())
-            
-            # for day, question_data in curr.items() :
-            #     cal = re.sub(rf'\b{day}\b', f'[{day}](<{question_data["solution"]}>)', cal)
-            
-            cal = cal.split('\n')
-            # print(cal)
-            # print()
-            this_month.append(f'### {cal[0].strip()}')  # month header
-            days = cal[1].split()
-            cal = cal[2:]
-            
-            # (' ' if len(y) == 1 else '') + 
-            cal = [[(y if int(y) not in curr else f'[{y}](<{curr[int(y)]["solution"]}>)') for y in x.split()] for x in cal]
-            if len(cal[0]) < 7 :
-                cal[0] = [''] * (7 - len(cal[0])) + cal[0]
-            
-            if not cal[-1] :
-                cal.pop()
-            
-            df = kungfupanda.DataFrame(cal, columns=days)
-            
-            markdown_cal =df.to_markdown(index=False)
-            
-            col_alignments = sorted(re.findall(r':{1}-{1}-*', markdown_cal), key=lambda x: len(x), reverse=True)
-            for ca in col_alignments :
-                markdown_cal = markdown_cal.replace(ca, '-' * (len(ca) - 1) + ':')
-            
-            this_month.append(markdown_cal)
-            this_month.append('\n')
-            outputs.append('\n'.join(this_month))
-        
-    return (outputs[-1], '\n'.join(outputs))
-    
-
-
-# In[ ]:
-
-
-def parseQuestionsForWeeklies(questionData: dict) -> Dict[int, Question] :
-    '''
-    Parses the official LeetCode json data for the daily and weekly premium questions
-    and returns them as a dictionary of question numbers to question objects
-
-    ### Returns :
-    dailies : Dict[int, Question]
-        A dictionary containing the daily questions as question objects
-    weeklies : Dict[int, Question]
-        A dictionary containing the weekly premium questions as question objects
-    '''
-    weeklies = getWeeklies()
-    weekliesDict = {}
-
-    # I've given ~1 day of leeway for the weeklies in case you forget to commit
-    for date, qNo in weeklies :
-        if qNo in questionData and questionData[qNo]['date_done'] <= date + timedelta(days=8) :
-            weekliesDict[date] = questionData[qNo].copy()
-            weekliesDict[date]['date_done'] = date
-            questionData[qNo]['categories'].add('Weekly Premium')
-
-    return weekliesDict
-
-
-# # Parsing Files
-# Question file parsing occurs here. It organizes it into 3 different lists, separated by difficulty and sorted by question number afterwards.
-
-# In[ ]:
-
-
-# Parse one leetcode answer file in the submissions folder
-def parseCase(leetcodeFile:         str,  # file name
-              questionData:         dict, # dictionary of question data
-              fileLatestTimes:      dict,
-              reprocessMarkdown:    set,
-              *,
-              questionDetailsDict:  dict = None,
-              subFolderPath:        str = '',
-              altTitle:             str = '',
-              contest:              str = None,
-              contestQNo:           str = None) -> bool:
-
-    if not questionDetailsDict :
-        questionDetailsDict = retrieveQuestionDetails()
-
-    path = join(config.LEETCODE_PATH_FROM_README, subFolderPath, leetcodeFile).replace("\\", "/")
+    # The first number in the file name is the question number
+    # e.g. 'e123 v1.py' -> 123
+    number_match = QUESTION_NO_PATTERN.search(file_name)
+    if not number_match :
+        print(f'Error in parsing {file_name}: no question number found in file name.',
+              '\nparseCase(...)',
+              '\nSkipping')
+        return False
+    number = int(number_match.group())
 
     try :
-        number      = int(re.search("\d{1,4}", leetcodeFile).group())   # Takes the first full number as the question
-        level       = questionDetailsDict[number].level                 # number and uses that as reference
-                                                                        # e.g. 'e123 v1.py' becomes 123
-    except (AttributeError) as ae :
-        print(f'Error in parsing {leetcodeFile}: {ae.name} encountered while trying to extract question number int(...).',
-                '\nparseCase(...)',
-                '\nSkipping')
-        return False
-    except (KeyError) as ke :
-        print(f'Error in parsing {leetcodeFile}: {ke} encountered while trying to extract question level from questionDetailsDict.',
-                '\nparseCase(...)',
-                '\nAttempting to pull from the name...')
-        level = leetcodeFile[0].lower()
-        
-        if level in ['e', 'm', 'h'] :
+        level = question_details[number].level
+    except KeyError as ke :
+        print(f'Error in parsing {file_name}: {ke} not found in question details.',
+              '\nparseCase(...)',
+              '\nAttempting to pull difficulty from the name...')
+        level = file_name[0].lower()
+        if level in ('e', 'm', 'h') :
             print(f'Level found: {level}')
         else :
-            print(f'Level not found \"{level}\". Defaulting to "Unknown"')
+            print(f'Level not found "{level}". Defaulting to "Unknown"')
             level = 'Unknown'
 
+    script_path = join(config.README_PATH, path)
+    file_times  = get_file_times(script_path)
 
-    creationtime, modificationtime = getCtimeMtimes(join(config.README_PATH, path))
+    if path not in file_latest_times or max(file_times) > file_latest_times[path] :
+        reprocess_markdown.add(number)
+        file_latest_times[path] = max(file_times)
 
-    if path not in fileLatestTimes or max(creationtime, modificationtime) > fileLatestTimes[path] :
-        reprocessMarkdown.add(number)
-        fileLatestTimes[path] = max(creationtime, modificationtime)
-        
-
-    if number in questionDetailsDict :
-        title   = f'[{questionDetailsDict[number].title}](<https://leetcode.com/problems/{questionDetailsDict[number].slug}>)'
+    if number in question_details :
+        details = question_details[number]
+        title = f'[{details.title}](<https://leetcode.com/problems/{details.slug}>)'
     else :
-        title   = f'Question {number}'
-    categories  = set()
-    language    = leetcodeFile[leetcodeFile.rfind('.') + 1:]
+        title = f'Question {number}'
 
-    if len(altTitle) > 0 :
-        title = altTitle + ' - ' + title
+    categories = set()
+    language   = file_name[file_name.rfind('.') + 1:]
 
-    # Question is from a contest folder
+    # Contest-folder files may carry their in-contest question number (q1-q4)
+    contest_q_no = None
     if contest :
-        temp = re.findall('q\d{1}', leetcodeFile)                       # Checking if file name has a question number (e.g. q1 of the contest)
-        if not len(temp) == 0 :
-            contestQNo = temp[0]
-
+        in_contest_no = re.findall(r'q\d{1}', file_name)
+        if in_contest_no :
+            contest_q_no = in_contest_no[0]
         categories.add('Contest')
 
-    if number in questionData :                                     # If solution already found for this question
-        questionData[number] = updateQuestion(questionData[number], 
-                                              language=language, 
-                                              categories=categories, 
-                                              notebook_path=join(config.README_PATH, path), 
-                                              readme_path=path,
-                                              contestTitle=contest,
-                                              contestQNo=contestQNo,
-                                              fileLatestTimes=fileLatestTimes)
+    if number in question_data :
+        update_question_entry(question_data[number],
+                              language=language,
+                              categories=categories,
+                              readme_path=path,
+                              file_times=file_times,
+                              file_size=_file_size(script_path),
+                              contest_title=contest,
+                              contest_q_no=contest_q_no)
     else :
-        questionData[number] = addCase(level=level, 
-                                       number=number, 
-                                       title=title,
-                                       categories=categories, 
-                                       language=language, 
-                                       notebook_path=join(config.README_PATH, path), 
-                                       readme_path=path,
-                                       contestTitle=contest,
-                                       contestQNo=contestQNo,
-                                       fileLatestTimes=fileLatestTimes)
+        question_data[number] = create_question_entry(number=number,
+                                                      title=title,
+                                                      level=level,
+                                                      categories=categories,
+                                                      language=language,
+                                                      readme_path=path,
+                                                      file_times=file_times,
+                                                      file_size=_file_size(script_path),
+                                                      contest_title=contest,
+                                                      contest_q_no=contest_q_no)
     return True
 
 
-# In[ ]:
+def parse_context_files(context_files:      List[str],
+                        question_data:      dict,
+                        file_latest_times:  dict,
+                        reprocess_markdown: Set[int]) -> None :
+    '''
+    Attaches notes files (.txt/.md, matched by question number in the file
+    name) to their question's record for inclusion in its markdown.
+    '''
+    for file_name in context_files :
+        base_name = file_name.replace('\\', '/').rsplit('/', 1)[-1]
 
-
-@cache
-def getCodeFiles() -> List[str] :
-    return [
-        x for x in listdir(config.LEETCODE_PATH_REFERENCE)
-        
-        if isfile(join(config.LEETCODE_PATH_REFERENCE, x))
-            and not x.endswith('.txt')
-            and not x.endswith('.md')
-            and not x.endswith('.gitignore')
-            and '.' in x
-    ]
-
-@cache
-def getContestFolders() -> List[str] :
-    return [
-        x for x in listdir(config.LEETCODE_PATH_REFERENCE)
-        if not isfile(join(config.LEETCODE_PATH_REFERENCE, x))
-    ]
-
-@cache
-def getContextFiles(*, contestFolders: List[str] = None) -> List[str] :
-    if not contestFolders :
-        contestFolders = getContestFolders()
-    
-    output = [
-        x for x in listdir(config.LEETCODE_PATH_REFERENCE)
-        
-        if isfile(join(config.LEETCODE_PATH_REFERENCE, x)) 
-            and (x.endswith('.txt') 
-                    or x.endswith('.md') 
-                    or '.' not in x)
-            and not x.endswith('.gitignore')
-    ]
-    
-    for folder in contestFolders :
-        output.extend([
-            join(folder, y) for y in listdir(join(config.LEETCODE_PATH_REFERENCE, folder))
-            
-            if isfile(join(config.LEETCODE_PATH_REFERENCE, folder, y))
-                and (y.endswith('.txt') 
-                        or y.endswith('.md')
-                        or '.' not in y)
-                and not y.endswith('.gitignore')
-        ])
-    return output
-
-def getContestFiles(contestFolders: List[str]) -> List[Tuple[str, str]] :
-    contestLeetcodeFiles = []
-
-    for contestFolder in contestFolders :
-        contestLeetcodeFiles.extend([
-            (contestFolder, fileName) for fileName in listdir(join(config.LEETCODE_PATH_REFERENCE, 
-                                                                   contestFolder))
-            
-            if isfile(join(config.LEETCODE_PATH_REFERENCE, contestFolder, fileName))
-                and not fileName.endswith('.txt')
-                and not fileName.endswith('.md')
-                and '.' in fileName
-                and not fileName.endswith('.gitignore')
-        ])
-    
-    return contestLeetcodeFiles
-
-
-
-# # Sort TXT Context
-# If .txt notes are placed, this adds them to their respective entry.
-
-# In[ ]:
-
-
-def parseContextFiles(txtFiles: str, 
-                      questionData: dict,
-                      fileLatestTimes: dict, 
-                      reprocessMarkdown: Set[int]) -> None:
-    for fileName in txtFiles :
-        try :
-            if '\\' in fileName :
-                number = int(re.search("\d{1,4}", fileName[fileName.rfind('\\'):]).group())
-            elif '/' in fileName :
-                number = int(re.search("\d{1,4}", fileName[fileName.rfind('/'):]).group())
-            else :
-                number = int(re.search("\d{1,4}", fileName).group())
-        except AttributeError as ae :
-            print(f'Error in parsing {fileName}: Attribute Error encountered while trying to extract question number int(...).',
+        number_match = QUESTION_NO_PATTERN.search(base_name)
+        if not number_match :
+            print(f'Error in parsing {file_name}: no question number found in file name.',
                   '\nparseContextFiles(...)',
                   '\nSkipping')
             continue
-    
-        if number not in questionData :
-            print(f'Error. No question solution found for context file ({fileName = })')
+        number = int(number_match.group())
+
+        if number not in question_data :
+            print(f'Error. No question solution found for context file ({file_name = })')
             continue
-        
-        questionData[number]['contextFile'] = join(config.LEETCODE_PATH_FROM_README, fileName)
-        path = join(config.LEETCODE_PATH_REFERENCE, fileName)
-        
-        creationtime, modificationtime = getCtimeMtimes(path)
-        if path not in fileLatestTimes or max(creationtime, modificationtime) > fileLatestTimes[path] :
-            fileLatestTimes[path] = max(creationtime, modificationtime)
-            reprocessMarkdown.add(number)
+
+        question_data[number]['contextFile'] = join(config.SUBMISSIONS_PATH_FROM_README, file_name)
+
+        path = join(config.SUBMISSIONS_DIR, file_name)
+        file_times = get_file_times(path)
+        if path not in file_latest_times or max(file_times) > file_latest_times[path] :
+            file_latest_times[path] = max(file_times)
+            reprocess_markdown.add(number)
 
 
-# # List-Based Categories
-# Updating `Category` columns based on the lists in the `Lists` directory.
+def build_question_data(files:              SubmissionFiles,
+                        question_details:   Dict[int, Question],
+                        file_latest_times:  dict) -> Tuple[dict, Set[int]] :
+    '''
+    Parses every discovered submission file into one `question_data` dict.
 
-# In[ ]:
+    ### Returns :
+    question_data : dict[int, dict]
+        Each question's parsed details keyed by question number
+    reprocess_markdown : Set[int]
+        Questions with new/modified files whose markdowns need regenerating
+    '''
+    question_data      = {}
+    reprocess_markdown = set()
+
+    print('Parsing code files...')
+    for file_name in files.code_files :
+        parse_case(file_name,
+                   question_data,
+                   file_latest_times,
+                   reprocess_markdown,
+                   question_details)
+
+    print('Parsing contest files...')
+    for contest_folder, file_name in files.contest_files :
+        parse_case(file_name,
+                   question_data,
+                   file_latest_times,
+                   reprocess_markdown,
+                   question_details,
+                   sub_folder=contest_folder,
+                   contest=contest_folder)
+
+    print('Parsing additional information/context files...')
+    parse_context_files(files.context_files,
+                        question_data,
+                        file_latest_times,
+                        reprocess_markdown)
+
+    return question_data, reprocess_markdown
 
 
-@cache
-def getLists() -> List[str] :
+# ============================================================================ #
+#  Stored data (question details, modification history)
+# ============================================================================ #
 
-    listFileNames = [
-        x for x in listdir(config.LISTSDIR) 
-        
-        if isfile(join(config.LISTSDIR, x)) 
-            and not x.startswith('.')
-            and not x == 'README.md'
-    ]
-    
-    print(listFileNames)
-    return listFileNames
+def retrieve_question_details() -> Dict[int, Question] :
+    '''
+    Retrieves each question's official details (title, AC rate, difficulty,
+    topics, ...) from the `.pkl` parsed from official LeetCode data by the
+    question-data submodule, keyed by question number.
+    '''
+    if not isfile(config.QUESTION_DETAILS_PATH) :
+        print('\nError in parsing official question data. leetcode.pkl not found. Exiting...')
+        print()
+        sys.exit(1)
+
+    with open(config.QUESTION_DETAILS_PATH, 'rb') as fp :
+        return pickle.load(fp)
 
 
-# In[ ]:
+def load_file_times() -> dict :
+    '''Retrieves the pickled per-file modification times from previous runs.'''
+    if isfile(config.HISTORY_PATH) :
+        with open(config.HISTORY_PATH, 'rb') as fp :
+            return pickle.load(fp)
+    return {}
 
 
-''' Format for lists file is as follows:
+def save_file_times(file_latest_times: dict) -> None :
+    '''Pickles each file's newest modification time for future runs.'''
+    with open(config.HISTORY_PATH, 'wb') as fp :
+        pickle.dump(file_latest_times, fp)
+
+
+# ============================================================================ #
+#  Daily and weekly challenges
+# ============================================================================ #
+
+def load_challenge_dates(data_path: str,
+                         first_date: datetime = None) -> List[Tuple[datetime, int]] :
+    '''
+    Loads a challenge history json (dailies or weeklies) as a list of
+    (date, question number) tuples sorted by date descending, skipping
+    challenges older than `first_date` (default: the oldest tracked file).
+    '''
+    if not first_date :
+        first_date = _oldest_file_date
+    print('Oldest date found:', first_date)
+
+    with open(data_path) as fp :
+        challenges = json.load(fp)
+
+    output = []
+    for date_string, details in challenges.items() :
+        date = datetime.strptime(date_string, '%Y-%m-%d')
+        if date < first_date :
+            continue
+        output.append((date, int(details['question']['questionFrontendId'])))
+
+    return sorted(output, key=lambda x: x[0], reverse=True)
+
+
+def match_challenge_questions(question_data: dict,
+                              challenges:    List[Tuple[datetime, int]],
+                              *,
+                              leeway:        timedelta,
+                              category:      str) -> Dict[datetime, dict] :
+    '''
+    Matches solved questions against challenge dates: a question completed
+    within `leeway` of its challenge date is tagged with `category` and
+    included in the returned {challenge date: question entry} mapping.
+    '''
+    matched = {}
+    for date, number in challenges :
+        if number in question_data and question_data[number]['date_done'] <= date + leeway :
+            matched[date] = question_data[number].copy()
+            matched[date]['date_done'] = date
+            question_data[number]['categories'].add(category)
+    return matched
+
+
+def build_daily_calendars(dailies: Dict[datetime, dict]) -> Tuple[str, str] :
+    '''
+    Renders the completed dailies as per-month markdown-table calendars where
+    each completed day links to its question's markdown.
+
+    ### Returns :
+    (current month's calendar, all months' calendars)
+    '''
+    if not dailies :
+        return ('', '')
+
+    # {year: {month: {day: question entry}}}
+    date_map = {}
+    for date, question in dailies.items() :
+        date_map.setdefault(date.year, {}).setdefault(date.month, {})[date.day] = question
+
+    calendar.setfirstweekday(calendar.SUNDAY)
+
+    earliest_date = min(dailies.keys())
+    today         = datetime.now()
+    outputs       = []
+
+    for year in range(earliest_date.year, today.year + 1) :
+        start_month = earliest_date.month if year == earliest_date.year else 1
+        end_month   = today.month if year == today.year else 12
+
+        for month in range(start_month, end_month + 1) :
+            days_completed = date_map.get(year, {}).get(month)
+            if not days_completed :
+                continue
+
+            # calendar.month() gives 'MONTH YEAR\nSu Mo ... Sa\n<day rows>'
+            month_lines = calendar.month(year, month).split('\n')
+            header      = f'### {month_lines[0].strip()}'
+            day_names   = month_lines[1].split()
+
+            # Link every completed day to its question's markdown
+            weeks = [[(day if int(day) not in days_completed
+                       else f'[{day}](<{days_completed[int(day)]["solution"]}>)')
+                      for day in line.split()]
+                     for line in month_lines[2:]]
+
+            # Left-pad the first week so days align to their weekday columns
+            if len(weeks[0]) < 7 :
+                weeks[0] = [''] * (7 - len(weeks[0])) + weeks[0]
+            if not weeks[-1] :
+                weeks.pop()
+
+            markdown_cal = kungfupanda.DataFrame(weeks, columns=day_names) \
+                                      .to_markdown(index=False)
+
+            # Right-align the day columns (tabulate only emits left alignment)
+            col_alignments = sorted(re.findall(r':{1}-{1}-*', markdown_cal),
+                                    key=len, reverse=True)
+            for alignment in col_alignments :
+                markdown_cal = markdown_cal.replace(alignment,
+                                                    '-' * (len(alignment) - 1) + ':')
+
+            outputs.append('\n'.join([header, markdown_cal, '\n']))
+
+    return (outputs[-1], '\n'.join(outputs))
+
+
+# ============================================================================ #
+#  List-based categories (NeetCode150, Blind75, ...)
+# ============================================================================ #
+
+def get_list_file_names() -> List[str] :
+    '''Question-list files present in the lists directory.'''
+    list_file_names = [x for x in listdir(config.LISTS_DIR)
+                       if isfile(join(config.LISTS_DIR, x))
+                          and not x.startswith('.')
+                          and not x == 'README.md']
+    print(list_file_names)
+    return list_file_names
+
+
+def parse_list_file(file_path: str) -> Set[int] :
+    '''
+    Extracts the question numbers from a list file. Expected format:
 
         [Question #]. [Question Name]
 
         [Easy, Med., Hard]
         Topic1
         Topic2
-        Topic3
         ...
-'''
-
-@cache
-def getList(fileName, filePath) -> Set[int] :
-    output = set() # can change to dict later if we want to output category info
-
-    count = 0
-    with open(filePath, 'r') as file :
-        lines = file.readlines()
-        for line in lines :
+    '''
+    output = set()
+    with open(file_path, 'r') as file :
+        for line in file.readlines() :
             if re.match(r'\d{1,4}\.', line) :
-                count += 1
                 output.add(int(line[:line.find('.')]))
-    
     return output
-    
 
 
-# In[ ]:
+def apply_list_categories(question_data: dict,
+                          *,
+                          list_file_names: List[str] = None) -> Dict[str, Set[int]] :
+    '''
+    Tags every solved question that appears in a list file with that list's
+    name as a category. Returns each list's question numbers by list name.
+    '''
+    if not list_file_names :
+        list_file_names = get_list_file_names()
+
+    list_data = {}
+    for file_name in list_file_names :
+        list_data[file_name] = parse_list_file(join(config.LISTS_DIR, file_name))
+        for number in list_data[file_name] :
+            if number in question_data :
+                question_data[number]['categories'].add(file_name)
+
+    return list_data
 
 
-def processListData(questionData: dict,
-                    *,
-                    listFileNames: List[str] = None) -> dict :
-    
-    if not listFileNames :
-        listFileNames = getLists()
-    
-    listData = {}
-    for file in listFileNames :
-        listData[file] = getList(file, join(config.LISTSDIR, file))
-        for q in listData[file] :
-            if q in questionData :
-                questionData[q]['categories'].add(file)
-                
-    return listData
+# ============================================================================ #
+#  Topic groupings
+# ============================================================================ #
 
+def get_completed_topic_lists(question_data:    dict,
+                              question_details: Dict[int, Question]) -> defaultdict :
+    '''Groups the solved question numbers by their official related topics.'''
+    completed_topic_lists = defaultdict(set)
 
-# # Question Topic Grouping
-# Parses the questions in `questionData` and adds their numbers to appropriate lists so that they can be parsed into their own lists as well as counted.
-
-# In[ ]:
-
-
-def getCompletedQuestionsTopicLists(questionData: dict,
-                                    *,
-                                    questionTopicsDict: dict = None) -> defaultdict :
-    
-    if not questionTopicsDict :
-        questionTopicsDict = retrieveQuestionDetails()
-    
-    completedTopicLists = defaultdict(set)
-
-    for question in questionData.keys() :
+    for number in question_data.keys() :
         # Shouldn't occur but just in case
-        if question not in questionTopicsDict :
+        if number not in question_details :
             continue
-        for topic in questionTopicsDict[question].topics :
-            completedTopicLists[topic].add(question)
+        for topic in question_details[number].topics :
+            completed_topic_lists[topic].add(number)
 
-    return completedTopicLists
-
-
-# # Individual Markdown Generation
-# 
-
-# In[ ]:
+    return completed_topic_lists
 
 
-# MARKDOWN_TO_SUBMISSIONS
-def generate_markdown(questionNo: int, 
-                      questionData: dict,
-                      *,
-                      questionDetailsDict: dict,
-                      export: bool = False) -> str :
-    
-    if not questionDetailsDict :
-        questionDetailsDict = retrieveQuestionDetails()
-    
-    if questionNo in questionData :
-        questionData = questionData[questionNo]
+# ============================================================================ #
+#  DataFrame conversion
+# ============================================================================ #
 
-    title = questionData["title"]
+def build_question_rows(question_data: dict,
+                        *,
+                        sort_by:                    str = 'number',
+                        include_date:               bool = False,
+                        include_questions:          Set[int] = set(),
+                        relative_folder_adjustment: int = 0,
+                        include_markdown_folder:    bool = False) -> List[list] :
+    '''One table row of display values per question, sorted by `sort_by`.'''
+    rows = []
 
-    # Only if title has already been modified and matched to a LeetCode url
-    # E.g. some contest files will be unmatched
-    if '[' in questionData["title"] :
+    for question in question_data.values() :
+        # If a question filter was given, skip questions outside of it
+        if include_questions and question['number'] not in include_questions :
+            continue
+
+        if sort_by == 'number' and include_markdown_folder :
+            solution_path = join(config.MARKDOWN_PATH, question['solution'])
+        else :
+            solution_path = question['solution']
+        solution_path = '../' * abs(relative_folder_adjustment) + solution_path
+
+        title = question['title']
+        if question['contestTitle'] and question['contestQNo'] :
+            title = f'{question["contestTitle"]} - {question["contestQNo"]} - {title}'
+
+        row = [question['number'],
+               title,
+               question['level'],
+               ', '.join(sorted(question['categories'])),
+               f'[solution](<{solution_path}>)',
+               ', '.join(sorted(question['languages']))]
+
+        if include_date :
+            row.append(question['date_done'].strftime('%b %d, %Y'))
+
+        rows.append(row)
+
+    # question_data is usually keyed by question number (= row[0]), except for
+    # challenge mappings which are keyed by date -- sort those by date instead
+    if not question_data :
+        pass
+    elif sort_by == 'date_done' and isinstance(next(iter(question_data.keys())), datetime) :
+        rows.sort(key=lambda row: datetime.strptime(row[-1], '%b %d, %Y'))
+    else :
+        rows.sort(key=lambda row: question_data.get(row[0])[sort_by])
+
+    return rows
+
+
+def question_dataframe(question_data: dict,
+                       *,
+                       sort_by:                    str = 'number',
+                       include_date:               bool = False,
+                       include_questions:          Set[int] = set(),
+                       relative_folder_adjustment: int = 0,
+                       include_markdown_folder:    bool = False) -> DataFrame :
+    '''Converts question records into a display DataFrame (see build_question_rows).'''
+    rows = build_question_rows(question_data,
+                               sort_by=sort_by,
+                               include_date=include_date,
+                               include_questions=include_questions,
+                               relative_folder_adjustment=relative_folder_adjustment,
+                               include_markdown_folder=include_markdown_folder)
+
+    # Protects against empty cases (e.g. if you have no daily files)
+    if not rows :
+        return kungfupanda.DataFrame()
+    return kungfupanda.DataFrame(data=rows, columns=COLUMNS[:len(rows[0])])
+
+
+def by_recent_dataframe(question_data: dict) -> DataFrame :
+    '''Questions sorted by first-completion date, most recent first.'''
+    return question_dataframe(question_data, sort_by='date_done', include_date=True).iloc[::-1]
+
+
+def by_code_length_dataframe(question_data: dict) -> DataFrame :
+    '''Questions sorted by total code size (bytes), largest first.'''
+    return question_dataframe(question_data, sort_by='bytes', include_date=True).iloc[::-1]
+
+
+# ============================================================================ #
+#  Markdown generation -- individual questions
+# ============================================================================ #
+
+def write_question_markdown(number:           int,
+                            question_data:    dict,
+                            question_details: Dict[int, Question],
+                            *,
+                            export: bool = False) -> None :
+    '''
+    Names (and, when `export` is set, writes) the markdown page collecting a
+    question's details, notes, and every solution file's code.
+    '''
+    entry = question_data[number]
+
+    title = entry['title']
+    # Titles matched to a LeetCode url are wrapped in a markdown link --
+    # extract the bare title for the file name
+    if '[' in title :
         title = title[title.find('[') + 1:title.find(']')]
+    title = f'{number}. {title}'
 
-    title = f'{questionNo}. {title}'
-    
-    generate_file_name = f'_{title}.md'
-    generate_path = join(config.README_PATH, config.MARKDOWN_PATH, generate_file_name)
-    output_path = join(config.MARKDOWN_PATH, generate_file_name)
-    
-    questionData['solution'] = generate_file_name
+    file_name         = f'_{title}.md'
+    entry['solution'] = file_name
 
     if not export :
-        return generate_path
+        return
 
-    with open(generate_path, 'w', encoding='utf-8') as f :
-        f.write(f'# {questionNo}. {questionData["title"]}\n\n')
+    with open(join(config.MARKDOWN_DIR, file_name), 'w', encoding='utf-8') as f :
+        f.write(f'# {number}. {entry["title"]}\n\n')
 
-        date_done = questionData['date_done']
-        date_modified = questionData['date_modified']
-        
-        f.write(f'*All prompts are owned by LeetCode. To view the prompt, click the title link above.*\n\n')
-        
-        if questionData['contestTitle'] and questionData['contestQNo']:
-            f.write(f'*Completed during {questionData["contestTitle"]} ({questionData["contestQNo"]})*\n\n')
+        f.write('*All prompts are owned by LeetCode. To view the prompt, click the title link above.*\n\n')
+
+        if entry['contestTitle'] and entry['contestQNo'] :
+            f.write(f'*Completed during {entry["contestTitle"]} ({entry["contestQNo"]})*\n\n')
 
         f.write('*[Back to top](<../README.md>)*\n\n')
 
         f.write('------\n\n')
-        f.write(f'> *First completed : {date_done:%B %d, %Y}*\n>\n')
-        f.write(f'> *Last updated : {date_modified:%B %d, %Y}*\n')
+        f.write(f'> *First completed : {entry["date_done"]:%B %d, %Y}*\n>\n')
+        f.write(f'> *Last updated : {entry["date_modified"]:%B %d, %Y}*\n')
 
         f.write('\n------\n\n')
 
-        tpcs = 'N/A' if questionNo not in questionDetailsDict or len(questionDetailsDict[questionNo].topics) == 0 \
-                     else ', '.join([f'[{x}](<{join(config.BY_TOPIC_FOLDER_PATH, x)}.md>)' for x in questionDetailsDict[questionNo].topics])
-        
-        f.write(f'> **Related Topics** : **{tpcs}**\n>\n')
+        if number not in question_details or len(question_details[number].topics) == 0 :
+            topics = 'N/A'
+        else :
+            topics = ', '.join(f'[{topic}](<{join(config.TOPIC_FOLDER, topic)}.md>)'
+                               for topic in question_details[number].topics)
+        f.write(f'> **Related Topics** : **{topics}**\n>\n')
 
-        acrate = 'Unknown' if questionNo not in questionDetailsDict else f'{round(questionDetailsDict[questionNo].acRate, 2)} %'
-        f.write(f'> **Acceptance Rate** : **{acrate}**\n\n')
+        acceptance_rate = 'Unknown' if number not in question_details \
+                          else f'{round(question_details[number].acRate, 2)} %'
+        f.write(f'> **Acceptance Rate** : **{acceptance_rate}**\n\n')
         f.write('------\n\n')
 
-        if 'contextFile' in questionData:
-            with open(join(config.README_PATH, questionData['contextFile']), 'r') as contextFile:
-                f.write('> ' + contextFile.read().replace('\n', '\n> '))
-            f.write(f'\n\n------\n\n')
-        
+        # The question's notes file, quoted, if one was found
+        if 'contextFile' in entry :
+            with open(join(config.README_PATH, entry['contextFile']), 'r') as context_file :
+                f.write('> ' + context_file.read().replace('\n', '\n> '))
+            f.write('\n\n------\n\n')
 
-        f.write(f'## Solutions\n\n')
-        for lang, solutions in questionData['solutions'].items() :
+        f.write('## Solutions\n\n')
+        for solutions in entry['solutions'].values() :
             solutions.sort()
             for solution in solutions :
                 name = solution[solution.find('/') + 1:]
                 f.write(f'- [{name}](<{join(config.README_PATH, solution)}>)\n')
 
-        for lang, solutions in questionData['solutions'].items() :
-            if lang.lower() in LANGUAGE_EQUIVS :
-                lang = LANGUAGE_EQUIVS[lang.lower()]
+        for language, solutions in entry['solutions'].items() :
+            if language.lower() in language_equivs() :
+                language = language_equivs()[language.lower()]
             else :
                 print()
-                print(f'Lang equiv not found: {lang = }')
-            f.write(f'### {lang}\n')
+                print(f'Lang equiv not found: {language = }')
+            f.write(f'### {language}\n')
+
             for solution in solutions :
-                name = solution.rfind('/') + 1
-                f.write(f'#### [{solution[name:]}](<{join(config.README_PATH, solution)}>)\n')
-                f.write(f'```{lang}\n')
-                with open(join(config.README_PATH, solution), 'r', encoding='utf-8') as solutionFile:
-                    fileData = solutionFile.read()
-                    if '# @lc code=start' in fileData :
-                        lcStart = '# @lc code=start'
-                        lcEnd   = '# @lc code=end'
-                        fileData = fileData[fileData.find(lcStart) + len(lcStart):fileData.rfind(lcEnd)]
-                    f.write(fileData)
+                base_name = solution[solution.rfind('/') + 1:]
+                f.write(f'#### [{base_name}](<{join(config.README_PATH, solution)}>)\n')
+                f.write(f'```{language}\n')
+                with open(join(config.README_PATH, solution), 'r', encoding='utf-8') as solution_file :
+                    file_data = solution_file.read()
+                    # Trim vscode-leetcode plugin wrappers down to the code itself
+                    if '# @lc code=start' in file_data :
+                        lc_start = '# @lc code=start'
+                        lc_end   = '# @lc code=end'
+                        file_data = file_data[file_data.find(lc_start) + len(lc_start):
+                                              file_data.rfind(lc_end)]
+                    f.write(file_data)
                 f.write('\n```\n\n')
 
-    return output_path
 
-
-# In[ ]:
-
-
-def processMarkdownGeneration(questionData: dict,
-                              reprocessMarkdown: Set[int],
-                              *,
-                              questionDetailsDict: dict = None) -> None :
-    
-    if not questionDetailsDict :
-        questionDetailsDict = retrieveQuestionDetails()
-    
-    # Create a folder to avoid errors if it doesn't already exist
-    markdownFolder = join(config.README_PATH, config.MARKDOWN_PATH)
-    if not isdir(markdownFolder) :
-        mkdir(markdownFolder)
-
-    for questionNo, dta in questionData.items() :
-        if questionNo in reprocessMarkdown :
-            generate_markdown(questionNo, 
-                              questionData, 
-                              questionDetailsDict=questionDetailsDict, 
-                              export=True)
-        else : # In order to assign the markdown paths
-            generate_markdown(questionNo, 
-                              questionData, 
-                              questionDetailsDict=questionDetailsDict, 
-                              export=False)
-
-
-# # DataFrames
-# Conversion into DataFrames and declaration of respective column headers occurs here.
-
-# In[ ]:
-
-
-def convertDataToMatrix(questionData: dict,
-                        *,
-                        sortBy: str = 'number',
-                        includeDate: bool = False,
-                        includeQuestions: set[int] = set(),
-                        relativeFolderAdjustment: int = 0,
-                        includeMarkdownFolder: bool = False) -> List[list] :
-    
-    dataframe_array = []
-
-    for question in questionData.values() :
-        # If it's not an empty set and the value isn't in there, skip
-        if includeQuestions and question['number'] not in includeQuestions :
-            continue
-
-        if sortBy == 'number' and includeMarkdownFolder :
-            solution_path = join(config.MARKDOWN_PATH, question['solution'])    
-        else :
-            solution_path = question['solution']
-        
-        solution_path = '../' * abs(relativeFolderAdjustment) + solution_path
-
-        title_to_use = question['title']
-        
-        if question['contestTitle'] and question['contestQNo'] :
-            title_to_use = f'{question["contestTitle"]} - {question["contestQNo"]} - {title_to_use}'
-
-        currentRow = [question['number'],
-                      title_to_use, 
-                      question['level'], 
-                      ', '.join(sorted(list(question['categories']))), 
-                      f'[solution](<{solution_path}>)', 
-                      ', '.join(sorted(list(question['languages'])))]
-        
-        if includeDate :
-            currentRow.append(question['date_done'].strftime('%b %d, %Y'))
-        
-        dataframe_array.append(currentRow)
-
-    # Usually, x[0] is the question number but the qustionData set might be keyed by the date if it's a daily case
-    if not questionData :
-        pass
-    elif sortBy == 'date_done' and type(list(questionData.keys())[0]) == datetime :
-        dataframe_array.sort(key=lambda x: datetime.strptime(x[-1], '%b %d, %Y'))
-    else :
-        dataframe_array.sort(key=lambda x: questionData.get(x[0])[sortBy])
-
-    return dataframe_array
-
-
-# In[ ]:
-
-
-def convertQuestionDataToDataframe(questionData: dict,
-                                   *,
-                                   sortBy: str = 'number',
-                                   includeDate:  bool = False,
-                                   includeQuestions: set[int] = set(),
-                                   relativeFolderAdjustment: int = 0,
-                                   includeMarkdownFolder: bool = False) -> DataFrame :
-    
-    questionData = convertDataToMatrix(questionData, 
-                                       sortBy=sortBy, 
-                                       includeDate=includeDate, 
-                                       includeQuestions=includeQuestions,
-                                       relativeFolderAdjustment=relativeFolderAdjustment,
-                                       includeMarkdownFolder=includeMarkdownFolder)
-    
-    # Protects against empty cases (e.g. if you have no daily files)
-    dfQuestions = kungfupanda.DataFrame()
-    if questionData :
-        dfQuestions = kungfupanda.DataFrame(data=questionData, columns=COLUMNS[:len(questionData[0])])
-    
-    return dfQuestions
-
-
-# # List & Other Markdowns
-
-# ## Sorted by Most Recent
-# Using creation dates of code files only; not modification dates.
-
-# In[ ]:
-
-
-# NOTE: Reversed due to default sorting being in ascending order
-def byRecentQuestionDataDataframe(questionData: dict) -> DataFrame :
-    return convertQuestionDataToDataframe(questionData, sortBy='date_done', includeDate=True).iloc[::-1]
-
-
-# ## Sorted by Amount of Code
-# Questions with more files on the question and longer submissions will be prioritized.
-
-# In[ ]:
-
-
-def byCodeLengthDataDataframe(questionData: dict) -> DataFrame :
-    return convertQuestionDataToDataframe(questionData, sortBy='bytes', includeDate=True).iloc[::-1]
-
-
-# # Generation of Markdowns for Each Related Topic
-# 
-
-# In[ ]:
-
-
-def questionTopicDataframes(questionData: dict,
-                            *,
-                            topicGroupings: defaultdict) -> List[Tuple[str, int, DataFrame]] : # [topic, number of questions, dataframe]
-    if not topicGroupings :
-        topicGroupings = getCompletedQuestionsTopicLists(questionData)
-    
-    output = []
-    for topic, qs in topicGroupings.items() :
-        output.append((topic, 
-                       len(qs), 
-                       convertQuestionDataToDataframe(questionData,
-                                                      includeDate=True,
-                                                      includeQuestions=qs,
-                                                      relativeFolderAdjustment= \
-                                                        -getenv('TOPIC_MARKDOWN_PATH_IN_MARKDOWNS_FOLDER').count('/'))))
-
-    output.sort(key=lambda x: x[1], reverse=True)
-    return output
-
-
-# Note: Topic based markdown generation and any of the large list markdowns in general sometimes suddenly show massive edits for what should be a regular usual question update. This is likely due to the dataframe.to_markdown method increasing the width of the table due to a larger than before seen input.
-
-# In[ ]:
-
-
-def topicBasedMarkdowns(questionData: dict,
-                         *,
-                         topicGroupings: defaultdict) -> List[Tuple[str, str]] :    # path of all outputs
-                                                                                    # list[0]  = overall mardown
-                                                                                    # list[1:] = order of count
-                                                                                    # doesn't include markdown 'markdown/'
-    if not topicGroupings :
-        topicGroupings = getCompletedQuestionsTopicLists(questionData)
-
-    topicDataframes = questionTopicDataframes(questionData=questionData, topicGroupings=topicGroupings)
-
-    if not isdir(config.NOTEBOOK_PATH) :
-        mkdir(config.NOTEBOOK_PATH)
-
-    output = [config.OVERALL_FILE_README_PATH]
-    with open(config.OVERALL_FILE_NOTEBOOK_PATH, 'w', encoding='utf-8') as topic_file :
-        topic_file.write('# Topics\n\n')
-        topic_file.write('*[Back to top](<../README.md>)*\n\n')
-        topic_file.write('------\n\n')
-
-        for topic, cnt, df in topicDataframes :
-            file_name = f'{topic}.md'
-            notebook_path = join(config.NOTEBOOK_PATH, file_name)
-            readme_path = join(config.TOPIC_FOLDER, file_name)
-            with open(notebook_path, 'w', encoding='utf-8') as f :
-                url = f'https://leetcode.com/tag/{topic.replace(" ", "-")}/'
-                f.write(f'# [{topic}](<{url}>) ({cnt} completed)\n\n')
-                f.write(f'*[Back to top](<../../README.md>)*\n\n')
-                f.write('------\n\n')
-                f.write(df.to_markdown(index=False))
-        
-            topic_file.write(f'- [{topic}](<{readme_path}>) ({cnt} completed)\n')
-            output.append((topic, readme_path))
-
-    return output
-
-
-# # Markdowns for Easy/Medium/Hard
-
-# In[ ]:
-
-
-def generateDifficultyLevelMarkdowns(questionData: dict) -> Tuple[Tuple[int, str], 
-                                                                  Tuple[int, str], 
-                                                                  Tuple[int, str]] :
+def export_question_markdowns(question_data:      dict,
+                              reprocess_markdown: Set[int],
+                              question_details:   Dict[int, Question]) -> None :
     '''
-    ### Returns:
-    - Tuple[Easy, Medium, Hard]
-        - Tuple[int, str] : (count, path from readme)
+    Writes the markdown page of every question queued in `reprocess_markdown`.
+    Untouched questions still get their markdown file name assigned (other
+    pages link to it) -- the file itself just isn't rewritten.
     '''
-    
-    easyQuestions   = {}
-    mediumQuestions = {}
-    hardQuestions   = {}
-    
-    for q, d in questionData.items() :
-        lvlIndicator = d['level'][0].lower()
-        match lvlIndicator :
-            case 'e' :
-                easyQuestions[q] = d
-            case 'm' :
-                mediumQuestions[q] = d
-            case 'h' :
-                hardQuestions[q] = d
-            case _ :
-                print(f'Error identifying level of {q = }')
-    
-    easyMarkdown    = convertQuestionDataToDataframe(easyQuestions, 
-                                                     includeDate=True, 
-                                                     includeMarkdownFolder=False)
-    mediumMarkdown  = convertQuestionDataToDataframe(mediumQuestions, 
-                                                     includeDate=True, 
-                                                     includeMarkdownFolder=False)
-    hardMarkdown    = convertQuestionDataToDataframe(hardQuestions, 
-                                                     includeDate=True, 
-                                                     includeMarkdownFolder=False)
-    
-    
-    easy_path   = join(config.DIFFICULTY_MARKDOWNS_PATH, 'Easy.md')
-    medium_path = join(config.DIFFICULTY_MARKDOWNS_PATH, 'Medium.md')
-    hard_path   = join(config.DIFFICULTY_MARKDOWNS_PATH, 'Hard.md')
-    
-    with open('../' + easy_path, 'w', encoding='utf-8') as f :
-        f.write(f'# Easy Questions ({len(easyQuestions)})\n\n')
-        f.write('*[Back to top](<../README.md>)*\n\n')
-        f.write('------\n\n')
-        f.write(easyMarkdown.to_markdown(index=False))
-        
-    with open('../' + medium_path, 'w', encoding='utf-8') as f :
-        f.write(f'# Medium Questions ({len(mediumQuestions)})\n\n')
-        f.write('*[Back to top](<../README.md>)*\n\n')
-        f.write('------\n\n')
-        f.write(mediumMarkdown.to_markdown(index=False))
-        
-    with open('../' + hard_path, 'w', encoding='utf-8') as f :
-        f.write(f'# Hard Questions ({len(hardQuestions)})\n\n')
-        f.write('*[Back to top](<../README.md>)*\n\n')
-        f.write('------\n\n')
-        f.write(hardMarkdown.to_markdown(index=False))
-    
-    return ((len(easyQuestions),    easy_path),
-            (len(mediumQuestions),  medium_path),
-            (len(hardQuestions),    hard_path))
+    if not isdir(config.MARKDOWN_DIR) :
+        mkdir(config.MARKDOWN_DIR)
+
+    for number in question_data.keys() :
+        write_question_markdown(number,
+                                question_data,
+                                question_details,
+                                export=number in reprocess_markdown)
 
 
-# ## Exports
+# ============================================================================ #
+#  Markdown generation -- grouping pages
+# ============================================================================ #
 
-# ## Dailies, Recents, etc.
-
-# In[ ]:
-
-
-def miscMarkdownGenerations(questionData:   dict,
+def _write_listing_markdown(file_name: str,
+                            header:    str,
+                            details:   str,
+                            df:        DataFrame,
                             *,
-                            code_length:    bool = False,
-                            recent:         bool = False,
-                            daily:          bool = False,
-                            weekly:         bool = False) -> str : # output path
-    
-    df          = None
-    fileName    = None
-    header_data = None
-    details     = None
-    tail        = None
-
-    if code_length :
-        df = byCodeLengthDataDataframe(questionData)
-        fileName    = 'Questions_By_Code_Length.md'
-        header_data = '# Questions By Code Length\n\n'
-        details     = 'Calculations are based on the code files\'s byte sizes.\n\n'
-    elif recent :
-        df = byRecentQuestionDataDataframe(questionData)
-        fileName    = 'Questions_By_Recent.md'
-        header_data = '# Most Recently Solved Questions\n\n'
-        details     = 'Calculations are based on the date of the first solve.\n\n'
-    elif daily :
-        dailyQuestionData = parseQuestionsForDailies(questionData)
-
-        print(f'{dailyQuestionData = }')
-        print(f'{config._oldest_date = }')
-
-        df = byRecentQuestionDataDataframe(dailyQuestionData)
-        fileName    = 'Daily_Questions.md'
-        # header_data = f'# [Daily Questions](<{DAILY_URL}>)\n\n'
-        header_data = f'# Daily Questions\n\n'
-        
-        curr_month, months = get_dailies_month_maps(dailyQuestionData)
-        
-        details     = 'Dates are for the date I completed the ' + \
-                      'question so due to the my time zone and how it lines up with ' + \
-                      'UTC, it may be off by a day.\n\n' + \
-                      curr_month + '\n\n'
-        tail        = months
-    elif weekly :
-        weeklyQuestionData = parseQuestionsForWeeklies(questionData)
-    
-        df          = byRecentQuestionDataDataframe(weeklyQuestionData)
-        fileName    = 'Weekly_Questions.md'
-        # header_data = f'# [Daily Questions](<{DAILY_URL}>)\n\n'
-        header_data = f'# Weekly Premium Questions\n\n'
-        details     = 'Dates are for the date I completed the ' + \
-                      'question so due to the my time zone and how it lines up with ' + \
-                      'UTC, it may be off by a day.\n\n'
-    else :
-        print('Error. No markdown generation specified.')
-        print()
-        return ''
-
-    output_path = join(config.MARKDOWN_PATH, fileName)
-    readme_path = join(config.README_PATH, config.MARKDOWN_PATH, fileName)
-
-    with open(readme_path, 'w', encoding='utf-8') as f :
-        f.write(header_data)
-        f.write(f'*[Back to top](<../README.md>)*\n\n')
+                            tail:      str = None) -> str :
+    '''
+    Writes one grouping page (header, blurb, question table, optional tail)
+    into the markdowns folder. Returns the page's path from the README.
+    '''
+    with open(join(config.MARKDOWN_DIR, file_name), 'w', encoding='utf-8') as f :
+        f.write(header)
+        f.write('*[Back to top](<../README.md>)*\n\n')
         f.write(details)
         f.write(df.to_markdown(index=False))
-        
         if tail :
             f.write(f'\n\n{tail}')
 
-    return output_path
+    return join(config.MARKDOWN_PATH, file_name)
 
 
-# # Outputing to README File
-# Takes all the above and overwrites the current [README.md](README.md) file with the data calculated above.
-# 
-# Inputs values in order of:
-# - Profile link
-# - Stats
-# - Stat clarification
-# - Question link tables Easy-Medium-Hard
-# 
-# Uses the built-in DataFrame `.to_markdown()` for outputting.
+def export_daily_markdown(question_data: dict) -> str :
+    '''Generates the daily-challenges page (calendars + table). Returns its path.'''
+    dailies = match_challenge_questions(question_data,
+                                        load_challenge_dates(config.DAILIES_DATA_PATH),
+                                        leeway=DAILY_LEEWAY,
+                                        category='Daily')
 
-# In[ ]:
+    current_month, all_months = build_daily_calendars(dailies)
+
+    details = 'Dates are for the date I completed the ' + \
+              'question so due to the my time zone and how it lines up with ' + \
+              'UTC, it may be off by a day.\n\n' + \
+              current_month + '\n\n'
+
+    return _write_listing_markdown('Daily_Questions.md',
+                                   '# Daily Questions\n\n',
+                                   details,
+                                   by_recent_dataframe(dailies),
+                                   tail=all_months)
 
 
-def exportPrimaryReadme(dfQuestions:        DataFrame,
-                        *,
-                        difficultyBasedMarkdowns: Tuple[Tuple[int, str], 
-                                                        Tuple[int, str], 
-                                                        Tuple[int, str]] = None,
-                        additionalSorts:    List[str] = [],
-                        topicLinks:         List[Tuple[str, str]] = []) -> None :
-    readmePath = join(config.README_PATH, 'README.md')
-    print(readmePath)
+def export_weekly_markdown(question_data: dict) -> str :
+    '''Generates the weekly-premium-challenges page. Returns its path.'''
+    weeklies = match_challenge_questions(question_data,
+                                         load_challenge_dates(config.WEEKLIES_DATA_PATH),
+                                         leeway=WEEKLY_LEEWAY,
+                                         category='Weekly Premium')
 
-    # No. Questions Solved
-    qSolvedHeader = f'{len(dfQuestions.index)} solved'
-    
-    print(difficultyBasedMarkdowns)
-    # if difficultyBasedMarkdowns :
-    #     qSolvedHeader += f' - [{difficultyBasedMarkdowns[0][0]}e](<{difficultyBasedMarkdowns[0][1]}>), ' + \
-    #                         f'[{difficultyBasedMarkdowns[1][0]}m](<{difficultyBasedMarkdowns[1][1]}>), ' + \
-    #                         f'[{difficultyBasedMarkdowns[2][0]}h](<{difficultyBasedMarkdowns[2][1]}>)'
-    
-    with open(readmePath, 'w') as file :
-        username = getenv('LEETCODE_USERNAME')
-        file.write(f'# **[LeetCode Records](https://leetcode.com/u/{username}/)** ({qSolvedHeader})\n\n')
-        file.write(f'<!-- This readme was generated using [WikiLeet](<https://github.com/Zanger67/WikiLeet>) -->\n\n')
+    details = 'Dates are for the date I completed the ' + \
+              'question so due to the my time zone and how it lines up with ' + \
+              'UTC, it may be off by a day.\n\n'
+
+    return _write_listing_markdown('Weekly_Questions.md',
+                                   '# Weekly Premium Questions\n\n',
+                                   details,
+                                   by_recent_dataframe(weeklies))
+
+
+def export_code_length_markdown(question_data: dict) -> str :
+    '''Generates the questions-by-code-length page. Returns its path.'''
+    return _write_listing_markdown('Questions_By_Code_Length.md',
+                                   '# Questions By Code Length\n\n',
+                                   'Calculations are based on the code files\'s byte sizes.\n\n',
+                                   by_code_length_dataframe(question_data))
+
+
+def export_recent_markdown(question_data: dict) -> str :
+    '''Generates the most-recently-solved page. Returns its path.'''
+    return _write_listing_markdown('Questions_By_Recent.md',
+                                   '# Most Recently Solved Questions\n\n',
+                                   'Calculations are based on the date of the first solve.\n\n',
+                                   by_recent_dataframe(question_data))
+
+
+def export_difficulty_markdowns(question_data: dict) -> Tuple[Tuple[int, str],
+                                                              Tuple[int, str],
+                                                              Tuple[int, str]] :
+    '''
+    Generates one page per difficulty (Easy.md, Medium.md, Hard.md).
+
+    ### Returns :
+    - Tuple[Easy, Medium, Hard]
+        - Tuple[int, str] : (count, path from readme)
+    '''
+    grouped = {'Easy': {}, 'Medium': {}, 'Hard': {}}
+    for number, entry in question_data.items() :
+        if entry['level'] in grouped :
+            grouped[entry['level']][number] = entry
+        else :
+            print(f'Error identifying level of {number = }')
+
+    output = []
+    for level, questions in grouped.items() :
+        df   = question_dataframe(questions, include_date=True)
+        path = join(config.MARKDOWN_PATH, f'{level}.md')
+
+        with open(join(config.README_PATH, path), 'w', encoding='utf-8') as f :
+            f.write(f'# {level} Questions ({len(questions)})\n\n')
+            f.write('*[Back to top](<../README.md>)*\n\n')
+            f.write('------\n\n')
+            f.write(df.to_markdown(index=False))
+
+        output.append((len(questions), path))
+
+    return tuple(output)
+
+
+# NOTE: Topic-based markdowns (and the large list markdowns in general) may
+# suddenly show massive diffs after a regular question update. This is likely
+# the dataframe.to_markdown method widening the whole table to fit a larger
+# than before seen input.
+def export_topic_markdowns(question_data:   dict,
+                           topic_groupings: defaultdict) -> Tuple[str, List[Tuple[str, str]]] :
+    '''
+    Generates one page per related topic plus the Topics.md overview linking
+    to all of them, ordered by completed-question count.
+
+    ### Returns :
+    (overview page's path from the README, [(topic, page's path), ...])
+    '''
+    topic_dataframes = [(topic,
+                         len(questions),
+                         question_dataframe(question_data,
+                                            include_date=True,
+                                            include_questions=questions,
+                                            relative_folder_adjustment=-config.TOPIC_FOLDER.count('/')))
+                        for topic, questions in topic_groupings.items()]
+    topic_dataframes.sort(key=lambda x: x[1], reverse=True)
+
+    if not isdir(config.TOPIC_MARKDOWN_DIR) :
+        mkdir(config.TOPIC_MARKDOWN_DIR)
+
+    topic_links = []
+    with open(config.TOPICS_OVERVIEW_FILE, 'w', encoding='utf-8') as overview :
+        overview.write('# Topics\n\n')
+        overview.write('*[Back to top](<../README.md>)*\n\n')
+        overview.write('------\n\n')
+
+        for topic, count, df in topic_dataframes :
+            file_name = f'{topic}.md'
+            with open(join(config.TOPIC_MARKDOWN_DIR, file_name), 'w', encoding='utf-8') as f :
+                url = f'https://leetcode.com/tag/{topic.replace(" ", "-")}/'
+                f.write(f'# [{topic}](<{url}>) ({count} completed)\n\n')
+                f.write('*[Back to top](<../../README.md>)*\n\n')
+                f.write('------\n\n')
+                f.write(df.to_markdown(index=False))
+
+            readme_path = join(config.TOPIC_FOLDER, file_name)
+            overview.write(f'- [{topic}](<{readme_path}>) ({count} completed)\n')
+            topic_links.append((topic, readme_path))
+
+    return config.TOPICS_OVERVIEW_PATH_FROM_README, topic_links
+
+
+# ============================================================================ #
+#  Markdown generation -- primary README
+# ============================================================================ #
+
+def export_primary_readme(df_questions:     DataFrame,
+                          *,
+                          additional_sorts: List[str] = [],
+                          topic_links:      List[Tuple[str, str]] = []) -> None :
+    '''
+    Overwrites the parent repo's README.md with the profile header, links to
+    every grouping page, and the full sorted question table.
+    '''
+    readme_path = join(config.README_PATH, 'README.md')
+    print(readme_path)
+
+    username        = config.USERNAME
+    q_solved_header = f'{len(df_questions.index)} solved'
+
+    with open(readme_path, 'w') as file :
+        file.write(f'# **[LeetCode Records](https://leetcode.com/u/{username}/)** ({q_solved_header})\n\n')
+        file.write('<!-- This readme was generated using [WikiLeet](<https://github.com/Zanger67/WikiLeet>) -->\n\n')
         file.write(f'> My LeetCode Profile: [{username}](https://leetcode.com/u/{username}/)\n')
-        
-        # if difficultyBasedMarkdowns :
-        #     file.write(f'> [{difficultyBasedMarkdowns[0][0]} easy](<{difficultyBasedMarkdowns[0][1]}>), ' + \
-        #                f'[{difficultyBasedMarkdowns[1][0]} medium](<{difficultyBasedMarkdowns[1][1]}>), ' + \
-        #                f'[{difficultyBasedMarkdowns[2][0]} hard](<{difficultyBasedMarkdowns[2][1]}>)')
-        
         file.write('\n\n')
 
         file.write('## About this Repo\n\n')
-        file.write('This repo is a collection of my LeetCode solutions, primarily written in Python, Java, and C. ' + 
-                   'On any page, `click the main title` to be redirected to the official `LeetCode` page for the ' + 
-                   'question, topic, list, etc. See the `Additional Categories` section for pages that group' + 
+        file.write('This repo is a collection of my LeetCode solutions, primarily written in Python, Java, and C. ' +
+                   'On any page, `click the main title` to be redirected to the official `LeetCode` page for the ' +
+                   'question, topic, list, etc. See the `Additional Categories` section for pages that group' +
                    ' questions by different criteria -- e.g. by their *related topics*.')
         file.write('\n\n\n')
 
@@ -1643,238 +1115,169 @@ def exportPrimaryReadme(dfQuestions:        DataFrame,
         file.write('1. **Daily** - Daily challenge questions that were done on the day of\n')
         file.write('2. **Weekly Premium** - Weekly premium questions that were done on week of\n')
         file.write('3. **Contest** - Questions that I completed during a live contest\n')
-        # file.write('4. **Favourite** - Questions that I liked and wanted to keep a record of\n')
         file.write('\n\n')
 
         file.write('------\n\n')
 
         file.write('## Additional Categories Stats\n')
+        for alt_sort in additional_sorts :
+            file.write(alt_sort)
+            file.write('\n\n')
 
-        for altSorts in additionalSorts :
-            file.write(altSorts)
-            file.write('\n\n')
-        
-        if topicLinks :
+        if topic_links :
             file.write('------\n\n')
-            file.write(', '.join([f'[{topic}](<{join(config.MARKDOWN_PATH, link)}>)' for topic, link in topicLinks[1:]]))       
+            file.write(', '.join(f'[{topic}](<{join(config.MARKDOWN_PATH, link)}>)'
+                                 for topic, link in topic_links))
             file.write('\n\n')
             file.write('------\n\n')
-        
+
         file.write('\n\n')
 
         file.write('## Questions\n')
-        file.write(dfQuestions.to_markdown(index=False))
-        
-        
+        file.write(df_questions.to_markdown(index=False))
+
         file.write('\n\n')
         file.write('<p align="right"><i>This README was generated using <a href="https://github.com/Zanger67/WikiLeet">WikiLeet</a></i></p>\n')
 
 
-# In[ ]:
+# ============================================================================ #
+#  Pipeline
+# ============================================================================ #
 
+def main(*, recalculate_all: bool = False, no_record: bool = False) -> Tuple[dict, Set[int]] :
+    '''
+    Runs the full generation pipeline. main.ipynb runs these same stages one
+    cell at a time.
 
-# recalculateAll: forces recalcualtion markdowns for each question irregardless if its
-#                 source files have been modified or not
-def main(*, recalculateAll: bool = False, noRecord: bool = False) -> None :
-    leetcodeFiles           = getCodeFiles()
-    additionalInfoFiles     = getContextFiles()     # For later use when generating the individual readme files
-
-    contestFolders          = getContestFolders()
-    contestLeetcodeFiles    = getContestFiles(contestFolders)
-
+    ### Parameters :
+    recalculate_all : bool
+        Regenerate every question's markdown regardless of whether its source
+        files were modified or not
+    no_record : bool
+        Ignore the stored modification-time history and don't store the new
+        one (in effect the same as recalculate_all, but stateless)
+    '''
+    # Stage 1: find all submission files, then (optionally, -g) date them
+    # through the git log
+    files = discover_submission_files()
     if USE_GIT_DATES :
-        getAllCTimesViaGit(additionalInfoFiles 
-                           + leetcodeFiles 
-                           + [join(x[0], x[1]) for x in contestLeetcodeFiles])
+        load_git_timestamps(files)
 
+    # Stage 2: official question details + which files changed since last run
+    question_details  = retrieve_question_details()
+    file_latest_times = load_file_times() if not (recalculate_all or no_record) else {}
 
-    questionDetailsDict     = retrieveQuestionDetails()
+    # Stage 3: parse every file into per-question records
+    question_data, reprocess_markdown = build_question_data(files,
+                                                            question_details,
+                                                            file_latest_times)
 
-    leetcodeFiles.sort()
-    contestLeetcodeFiles.sort()
-
-
-    # Files for leetcode questions found
-    print(f'Total of {len(leetcodeFiles)} files found.')
-
-    # Files in contest folders found
-    print(f'Total of {len(contestLeetcodeFiles)} contest files found.')
-
-
-    # Parsing primary files
-    fileLatestTimes = getRecentFileTimes() if (not recalculateAll and not noRecord) else {}
-
-    reprocessMarkdown = set()
-    questionData = {}
-
-    # Parsing primary files
-    print('Parsing code files...')
-    for leetcodeFile in leetcodeFiles :
-        parseCase(leetcodeFile=leetcodeFile,
-                  questionData=questionData,
-                  fileLatestTimes=fileLatestTimes, 
-                  reprocessMarkdown=reprocessMarkdown,
-                  questionDetailsDict=questionDetailsDict)
-        
-    # Parsing contest files & folforders
-    print('Parsing contest files...')
-    for leetcodeContestFile in contestLeetcodeFiles :
-        contestFolder, leetcodeFile = leetcodeContestFile
-        parseCase(leetcodeFile=leetcodeFile,
-                  questionData=questionData,
-                  fileLatestTimes=fileLatestTimes,
-                  reprocessMarkdown=reprocessMarkdown, 
-                  subFolderPath=contestFolder, 
-                  questionDetailsDict=questionDetailsDict,
-                  contest=contestFolder)
-        
-
-    # Parsing additional information files
-    print('Parsing additional information/context files...')
-    parseContextFiles(txtFiles=additionalInfoFiles, 
-                      questionData=questionData,
-                      fileLatestTimes=fileLatestTimes,
-                      reprocessMarkdown=reprocessMarkdown)
-    
-    # Identifying members of lists
+    # Stage 4: tag questions that appear in list files (NeetCode150, ...)
     print('Sorting questions to their lists...')
-    processListData(questionData=questionData)
+    apply_list_categories(question_data)
 
-    # Generating markdowns for each individual question
+    # Stage 5: one markdown page per new/updated question
     print('Generating markdowns for each individual question...')
-    processMarkdownGeneration(questionData=questionData, 
-                              reprocessMarkdown=reprocessMarkdown, 
-                              questionDetailsDict=questionDetailsDict)
+    export_question_markdowns(question_data, reprocess_markdown, question_details)
 
-    
-    # Produces a markdown where questions are sorted by the amount of code
-    # written for the question
-    # code_length_md_path = exportCodeLengthMarkdown(questionData)
+    # Stage 6: grouping pages. Challenge pages come first -- they also tag
+    # questions with the Daily/Weekly Premium categories shown everywhere else
     print('Generating category lists...')
-    dailyQuestions      = miscMarkdownGenerations(questionData, daily=True)
-    weeklyQuestions     = miscMarkdownGenerations(questionData, weekly=True)
-    byCodeLength        = miscMarkdownGenerations(questionData, code_length=True)
-    byRecentlySolved    = miscMarkdownGenerations(questionData, recent=True)
-    altSorts            = [f'- [Daily Questions](<{dailyQuestions}>)',
-                           f'- [Weekly Questions](<{weeklyQuestions}>)',
-                           f'- [Questions By Code Length](<{byCodeLength}>)',
-                           f'- [Questions By Recent](<{byRecentlySolved}>)']
-    
+    additional_sorts = [
+        f'- [Daily Questions](<{export_daily_markdown(question_data)}>)',
+        f'- [Weekly Questions](<{export_weekly_markdown(question_data)}>)',
+        f'- [Questions By Code Length](<{export_code_length_markdown(question_data)}>)',
+        f'- [Questions By Recent](<{export_recent_markdown(question_data)}>)',
+    ]
+    export_difficulty_markdowns(question_data)
 
-    difficultyBasedMarkdowns = generateDifficultyLevelMarkdowns(questionData)
-    
+    topic_groupings = get_completed_topic_lists(question_data, question_details)
+    overview_path, topic_links = export_topic_markdowns(question_data, topic_groupings)
+    additional_sorts.append(f'- [Grouped by Topic](<{overview_path}>)')
 
-    completedQsTopicGroupings = getCompletedQuestionsTopicLists(questionData)
-    topicMarkdownLinks = topicBasedMarkdowns(questionData, topicGroupings=completedQsTopicGroupings)
-    altSorts.append(f'- [Grouped by Topic](<{topicMarkdownLinks[0]}>)')
-
-
-    # Exporting the primary README.md file
+    # Stage 7: the primary README
     print('Exporting primary README.md file...')
-    dfQuestions = convertQuestionDataToDataframe(questionData, 
-                                                 includeDate=False, 
-                                                 includeMarkdownFolder=True)
-    exportPrimaryReadme(dfQuestions, 
-                        additionalSorts=altSorts, 
-                        topicLinks=topicMarkdownLinks, 
-                        difficultyBasedMarkdowns=difficultyBasedMarkdowns)
+    df_questions = question_dataframe(question_data, include_markdown_folder=True)
+    export_primary_readme(df_questions,
+                          additional_sorts=additional_sorts,
+                          topic_links=topic_links)
 
+    print(f'Number of individual questions updated/added: {len(reprocess_markdown)}')
 
-    print(f'Number of individual questions updated/added: {len(reprocessMarkdown)}')
-
-
-    if not noRecord :
+    # Stage 8: remember each file's modification time for the next run
+    if not no_record :
         print('Pickling most recent modification times for future reference...')
-        writeRecentFileTimes(fileLatestTimes)           # restore for next use
-
+        save_file_times(file_latest_times)
 
     print('All processes complete. Exiting...')
-    return questionData, reprocessMarkdown
+    return question_data, reprocess_markdown
 
 
-# In[ ]:
+# ============================================================================ #
+#  CLI entry point
+# ============================================================================ #
+
+def parse_cli_args() -> argparse.Namespace :
+    parser = argparse.ArgumentParser(description='WikiLeet markdown generator')
+
+    parser.add_argument('-r',
+                        help='Recompile all markdown files',
+                        required=False,
+                        action=argparse.BooleanOptionalAction)
+    parser.add_argument('-n',
+                        help="Don't use the previous modified dates and don't store them",
+                        required=False,
+                        action=argparse.BooleanOptionalAction)
+    parser.add_argument('-norecord',
+                        help="Don't use the previous modified dates and don't store them",
+                        required=False,
+                        action=argparse.BooleanOptionalAction)
+    parser.add_argument('-g',
+                        help="Use the git repo's log for determining if a file has been modified and created (WARNING SLOW)",
+                        required=False,
+                        action=argparse.BooleanOptionalAction)
+
+    parser.add_argument('-user',
+                        type=str,
+                        default='',
+                        help='LeetCode Username',
+                        required=False)
+    parser.add_argument('-dir',
+                        type=str,
+                        default='',
+                        help='Solutions directory name; default of "my-submissions/"',
+                        required=False)
+
+    return parser.parse_args()
 
 
 if __name__ == '__main__' :
-    '''
-    ### Flags
-    `-r` : 
-        Recalculate all markdown files irregardless of whether there are modified or new code files for that question or not
-    `-n` :
-        Don't use the previous modified dates and don't store them (in effect, the same as `-r` but it doesn't save the 
-        new modification dates). Primarily for use with GitHub actions.
-    `-g` :
-        Uses the repository's git log history for each file to trace the creation and last modification dates of each file 
-        rather than use the default `getctime()` and `getmtime()` of each file. GitHub actions seem to default the ctime 
-        and mtimes to time.now due to not tracking the actual mtime ctime metadata.
+    # Ensure relative paths resolve from this script's location rather than
+    # the calling location (e.g. `python someFolder/main.py` still works)
+    chdir(dirname(abspath(__file__)))
 
-        WARNING: Only for use with GitHub actions as this ends up being very slow due to low subprocess speends.
-    '''
-    recalcaulateAll = False
-    noRecord = False
-    
+    args = parse_cli_args()
 
-    if not IS_NOTEBOOK :
-        parser = argparse.ArgumentParser()
-        
+    config.load_environment()
 
-        parser.add_argument("-r", 
-                            help="Recompile all markdown files", 
-                            required=False, 
-                            action=argparse.BooleanOptionalAction)
-        
-        parser.add_argument("-n", 
-                            help="Don't use the previous modified dates and don't store them", 
-                            required=False, 
-                            action=argparse.BooleanOptionalAction)
-        parser.add_argument("-norecord", 
-                            help="Don't use the previous modified dates and don't store them", 
-                            required=False, 
-                            action=argparse.BooleanOptionalAction)
-        parser.add_argument("-g", 
-                            help="Use Git repo's dates for determining if a file has been modified and created (WARNING SLOW)", 
-                            required=False, 
-                            action=argparse.BooleanOptionalAction)
+    # CLI overrides are applied to the environment before the config
+    # resolves its values from it
+    if args.user :
+        environ['LEETCODE_USERNAME'] = args.user
+    if args.dir :
+        environ['QUESTIONS_PATH_FROM_README'] = args.dir if args.dir.endswith('/') \
+                                                else f'{args.dir}/'
 
-        parser.add_argument('-user', 
-                            type=str, 
-                            default='', 
-                            help='LeetCode Username',
-                            required=False)
-        parser.add_argument("-dir",
-                            type=str,
-                            default='',
-                            help="Solutions directory name; default of \"my-submissions/\"",
-                            required=False)
-        
-        if parser.parse_args().user :
-            environ['LEETCODE_USERNAME'] = parser.parse_args().user
-        
-        if parser.parse_args().dir :
-            print('dir found')
-            environ['QUESTIONS_PATH_FROM_README'] = parser.parse_args().dir
-            
-            if not environ['QUESTIONS_PATH_FROM_README'].endswith('/') :
-                print('added / to dir')
-                environ['QUESTIONS_PATH_FROM_README'] = f"{environ['QUESTIONS_PATH_FROM_README']}/"
-        
-        print(environ['QUESTIONS_PATH_FROM_README'])
-        
-        recalcaulateAll = parser.parse_args().r
-        noRecord = parser.parse_args().norecord or parser.parse_args().n
+    config.init()
 
-        USE_GIT_DATES = parser.parse_args().g
+    USE_GIT_DATES   = bool(args.g)
+    no_record       = bool(args.n or args.norecord)
+    recalculate_all = bool(args.r)
 
-    
-
-    set_env_linked_constants()
-    print(f'\t\t{config.QUESTION_DATA_FOLDER = }')
-
-    print('No record'.ljust(20), 'on' if noRecord else 'off')
-    print('Recalculate'.ljust(20), 'on' if recalcaulateAll else 'off')
+    print('Solutions directory'.ljust(20), config.SUBMISSIONS_PATH_FROM_README)
+    print('No record'.ljust(20), 'on' if no_record else 'off')
+    print('Recalculate'.ljust(20), 'on' if recalculate_all else 'off')
     print('Use Git dates'.ljust(20), 'on' if USE_GIT_DATES else 'off')
     print()
 
-
-    main(recalculateAll=recalcaulateAll, noRecord=noRecord)
-
+    main(recalculate_all=recalculate_all, no_record=no_record)
