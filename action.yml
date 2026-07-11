@@ -40,7 +40,7 @@ runs:
         - name: Pull current version of markdown generator | Cloning if not present
           shell: bash
           run: |
-              git clone --recurse-submodules https://github.com/Zanger67/Leetcode-Progress-Tracker.git '.readme_updater'
+              git clone --recurse-submodules https://github.com/Zanger67/WikiLeet.git '.readme_updater'
 
               cd .readme_updater
               echo "Initializing and updating submodules in case checkout resulted in uninitializations..."
