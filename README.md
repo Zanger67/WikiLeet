@@ -32,12 +32,11 @@ on:
     # Allows for munual runs of workflow
     workflow_dispatch:
 
-    # Default whenever a new code file is pushed to the main branch
+    # Default whenever anything is pushed to the main branch (solutions are
+    # detected anywhere in the repo now, not just under my-submissions/)
     push:
         branches:
             - main
-        paths:
-            - 'my-submissions/**'
 
 permissions:
     contents: write
@@ -72,8 +71,10 @@ jobs:
   - Any questions in that folder will be attributed to the contest of the folder's name. Click [here](https://github.com/Zanger67/leetcode/tree/main/my-submissions) for an example.
 
 - Auto-uploading submissions
-  - If you use extensions that automatically pulll your submissions, as long as the question's number is present in the file name and it's not in a folder, it will work perfectly.
-  - E.g. with the [vscode-leetcode](https://github.com/LeetCode-OpenSource/vscode-leetcode/tree/master) extension, you can set the `my-submissions` as the file store location and the script will parse it all the same.
+  - Solution files are detected **anywhere in the repo**, not just in a dedicated folder. Any code file whose name contains the question number is picked up, using the **first 1-4 digit number** in the name (e.g. `abc1234 notes.java` → `1234`; a 5+ digit run like `abc12345.java` is ignored, and `abc123def345.java` → `123`).
+  - Generically-named files like `main`/`solution` that have no number of their own take the question number from their **immediate parent folder** instead (e.g. `1234. Two Sum/Solution.java` → `1234`). Only that one folder level is checked.
+  - Difficulty (Easy/Medium/Hard) always comes from the official LeetCode question data. Dot-directories (`.git/`, `.github/`, ...), the generated `markdowns/` folder, and this generator's own folder are skipped.
+  - E.g. with the [vscode-leetcode](https://github.com/LeetCode-OpenSource/vscode-leetcode/tree/master) extension, you can set any folder as the file store location and the script will parse it all the same.
 
 - Creation and modification dates
   - Default times are set based off of UTC commit times since that's what LeetCode goes off of.

@@ -4,7 +4,7 @@
 '''
 WikiLeet markdown generator.
 
-Parses a folder of LeetCode solution files and generates a wiki-like set of
+Parses a repo of LeetCode solution files and generates a wiki-like set of
 markdown files: one page per question, grouping pages (by topic, difficulty,
 recency, code length, daily/weekly challenges), and the primary README.md of
 the repo that imported WikiLeet as a submodule.
@@ -45,8 +45,8 @@ import sys
 from collections import defaultdict
 from datetime import datetime, timedelta
 from functools import cache
-from os import chdir, environ, listdir, mkdir, stat
-from os.path import abspath, dirname, getctime, getmtime, isdir, isfile, join
+from os import chdir, environ, listdir, mkdir, stat, walk
+from os.path import abspath, dirname, getctime, getmtime, isdir, isfile, join, relpath
 from typing import Dict, List, NamedTuple, Set, Tuple
 
 import pandas as kungfupanda                    # pandas for dataframe to markdown exports
@@ -91,7 +91,14 @@ COLUMNS = [
             'Date Complete'
           ]
 
-QUESTION_NO_PATTERN = re.compile(r'\d{1,4}')
+# A question number is the first run of 1-4 digits in a name that is NOT part of
+# a longer digit run -- so "abc1234 x" -> 1234 and "abc123def345" -> 123, while a
+# 5+ digit run like "abc12345" matches nothing (LeetCode numbers cap at 4 digits).
+QUESTION_NO_PATTERN = re.compile(r'(?<!\d)\d{1,4}(?!\d)')
+
+# Number-less solution files are often named generically ("main"/"solution")
+# inside a folder named after the question -- e.g. "1234. Two Sum/Solution.java".
+MAIN_SOLUTION_PATTERN = re.compile(r'main|solution', re.IGNORECASE)
 
 # Grace periods for counting a solve as an on-time daily/weekly challenge
 # (allows for late commits and timezone offsets vs. UTC)
@@ -201,38 +208,103 @@ def _is_context_file(file_name: str) -> bool :
 
 
 class SubmissionFiles(NamedTuple) :
-    '''Every submission-folder file relevant to the generator.'''
-    code_files:     List[str]                   # file names in the submissions folder
+    '''Every repo file relevant to the generator, keyed by path from the README.'''
+    code_files:     List[str]                   # solution file paths (from the README)
     contest_files:  List[Tuple[str, str]]       # (contest folder, file name)
-    context_files:  List[str]                   # notes files, incl. contest-folder ones
+    context_files:  List[str]                   # notes file paths (from the README)
+
+
+# Non-dot directory names never descended into during the repo-wide scan
+# (every dot-directory -- .git, .github, .readme_updater, .vscode, ... -- is
+# skipped separately by the leading-dot check in discover_submission_files).
+_PRUNE_DIR_NAMES = {'__pycache__'}
+
+
+def _pruned_dir_abspaths(contest_folders_abs: Set[str]) -> Set[str] :
+    '''
+    Absolute paths of directories excluded from the repo-wide scan: this
+    generator's own folder (the `.readme_updater/` submodule), the generated
+    markdowns folder, and every contest folder (those are scanned separately and
+    take precedence). Dot-directories are excluded by name, not listed here.
+    '''
+    return {
+        abspath(config.SCRIPT_DIR),
+        abspath(config.MARKDOWN_DIR),
+    } | contest_folders_abs
+
+
+def _discover_contest_files() -> Tuple[Set[str], List[Tuple[str, str]], List[str]] :
+    '''
+    Finds contest solutions: each immediate subfolder of the configured
+    submissions dir is treated as a contest (unchanged legacy behavior). Returns
+    the contest folders' absolute paths (so the repo-wide walk can skip them),
+    the (folder, code file) pairs, and any contest-folder notes files' paths.
+    '''
+    if not isdir(config.SUBMISSIONS_DIR) :
+        return set(), [], []
+
+    contest_folders = [x for x in listdir(config.SUBMISSIONS_DIR)
+                       if isdir(join(config.SUBMISSIONS_DIR, x))]
+
+    folders_abs   = set()
+    contest_files = []
+    context_files = []
+    for folder in contest_folders :
+        folder_dir = join(config.SUBMISSIONS_DIR, folder)
+        folders_abs.add(abspath(folder_dir))
+
+        for name in listdir(folder_dir) :
+            if not isfile(join(folder_dir, name)) :
+                continue
+            if _is_code_file(name) :
+                contest_files.append((folder, name))
+            elif _is_context_file(name) :
+                context_files.append(
+                    join(config.SUBMISSIONS_PATH_FROM_README, folder, name).replace('\\', '/'))
+
+    return folders_abs, contest_files, context_files
 
 
 def discover_submission_files() -> SubmissionFiles :
-    '''Scans the submissions folder for solution, contest, and context files.'''
-    contest_folders = [x for x in listdir(config.SUBMISSIONS_DIR)
-                       if not isfile(join(config.SUBMISSIONS_DIR, x))]
+    '''
+    Scans the whole parent repo for solution and context files, keyed by their
+    path from the README. Every code file whose name (or, for `main`/`solution`
+    files, whose parent folder) carries a question number counts as a solution --
+    regardless of whether it lives in a dedicated submissions folder.
 
-    code_files = [x for x in listdir(config.SUBMISSIONS_DIR)
-                  if isfile(join(config.SUBMISSIONS_DIR, x)) and _is_code_file(x)]
+    Contest folders are discovered separately and take precedence (they are
+    pruned from the repo-wide walk); every dot-directory (`.git/`, `.github/`,
+    `.readme_updater/`, ...), the generator's own folder, and the markdowns
+    folder are skipped.
+    '''
+    repo_root = abspath(config.README_PATH)
 
-    contest_files = []
-    for folder in contest_folders :
-        contest_files.extend(
-            (folder, name) for name in listdir(join(config.SUBMISSIONS_DIR, folder))
-            if isfile(join(config.SUBMISSIONS_DIR, folder, name)) and _is_code_file(name))
+    contest_folders_abs, contest_files, context_files = _discover_contest_files()
+    pruned = _pruned_dir_abspaths(contest_folders_abs)
 
-    context_files = [x for x in listdir(config.SUBMISSIONS_DIR)
-                     if isfile(join(config.SUBMISSIONS_DIR, x)) and _is_context_file(x)]
-    for folder in contest_folders :
-        context_files.extend(
-            join(folder, name) for name in listdir(join(config.SUBMISSIONS_DIR, folder))
-            if isfile(join(config.SUBMISSIONS_DIR, folder, name)) and _is_context_file(name))
+    code_files = []
+    for dir_path, dir_names, file_names in walk(repo_root) :
+        # Prune excluded directories in-place so walk() won't descend into them:
+        # any dot-directory, __pycache__, the generator/markdowns/contest folders
+        dir_names[:] = [d for d in dir_names
+                        if not d.startswith('.')
+                        and d not in _PRUNE_DIR_NAMES
+                        and abspath(join(dir_path, d)) not in pruned]
+
+        for name in file_names :
+            readme_path = relpath(join(dir_path, name), repo_root).replace('\\', '/')
+            if _is_code_file(name) :
+                code_files.append(readme_path)
+            elif _is_context_file(name) :
+                context_files.append(readme_path)
 
     code_files.sort()
     contest_files.sort()
+    context_files.sort()
 
-    print(f'Total of {len(code_files)} files found.')
+    print(f'Total of {len(code_files)} code files found.')
     print(f'Total of {len(contest_files)} contest files found.')
+    print(f'Total of {len(context_files)} context files found.')
 
     return SubmissionFiles(code_files, contest_files, context_files)
 
@@ -249,16 +321,16 @@ def load_git_timestamps(files: SubmissionFiles) -> None :
     '''
     global _oldest_file_date
 
-    paths = (files.context_files
-             + files.code_files
-             + [join(folder, name) for folder, name in files.contest_files])
+    paths = (list(files.context_files)
+             + list(files.code_files)
+             + [join(config.SUBMISSIONS_PATH_FROM_README, folder, name).replace('\\', '/')
+                for folder, name in files.contest_files])
 
     print('Beginning parsing of git logs for file creation and modification dates...')
     cmd = 'git log -M --format=%ct --reverse --'.split()
     oldest_date = datetime.now()
 
-    for path in tqdm(paths) :
-        readme_path = join(config.SUBMISSIONS_PATH_FROM_README, path)
+    for readme_path in tqdm(paths) :
         _git_file_times[readme_path] = _parse_git_log_times(cmd + [readme_path])
         oldest_date = min(oldest_date, _git_file_times[readme_path][0])
 
@@ -350,43 +422,63 @@ def update_question_entry(entry: dict,
     return entry
 
 
-def parse_case(file_name:           str,
+def _first_question_number(text: str) :
+    '''First 1-4 digit question number in `text`, or None (see QUESTION_NO_PATTERN).'''
+    match = QUESTION_NO_PATTERN.search(text)
+    return int(match.group()) if match else None
+
+
+def _resolve_question_number(readme_path: str) :
+    '''
+    The question number for a code file.
+
+    Normally the first 1-4 digit run in the file name. For number-less files
+    named like "main"/"solution", falls back to the first number in the file's
+    immediate parent folder (one level up only) -- e.g.
+    "1234. Two Sum/Solution.java" resolves to 1234. None if neither has one.
+    '''
+    parts     = readme_path.replace('\\', '/').split('/')
+    file_name = parts[-1]
+
+    number = _first_question_number(file_name)
+    if number is not None :
+        return number
+
+    if MAIN_SOLUTION_PATTERN.search(file_name) and len(parts) >= 2 :
+        return _first_question_number(parts[-2])    # immediate parent folder only
+
+    return None
+
+
+def parse_case(readme_path:         str,
                question_data:       dict,
                file_latest_times:   dict,
                reprocess_markdown:  Set[int],
                question_details:    Dict[int, Question],
                *,
-               sub_folder:          str = '',
                contest:             str = None) -> bool :
     '''
-    Parses one solution file into `question_data`, creating or updating the
-    question's record. Questions whose files are newer than the stored
-    history in `file_latest_times` are queued in `reprocess_markdown`.
+    Parses one solution file (given by its path from the README) into
+    `question_data`, creating or updating the question's record. Questions whose
+    files are newer than the stored history in `file_latest_times` are queued in
+    `reprocess_markdown`. Returns False for files with no resolvable question
+    number (they are silently skipped -- most repo files are not solutions).
     '''
-    path = join(config.SUBMISSIONS_PATH_FROM_README, sub_folder, file_name).replace('\\', '/')
+    path      = readme_path.replace('\\', '/')
+    file_name = path.rsplit('/', 1)[-1]
 
-    # The first number in the file name is the question number
-    # e.g. 'e123 v1.py' -> 123
-    number_match = QUESTION_NO_PATTERN.search(file_name)
-    if not number_match :
-        print(f'Error in parsing {file_name}: no question number found in file name.',
-              '\nparseCase(...)',
-              '\nSkipping')
+    number = _resolve_question_number(path)
+    if number is None :
         return False
-    number = int(number_match.group())
 
-    try :
-        level = question_details[number].level
-    except KeyError as ke :
-        print(f'Error in parsing {file_name}: {ke} not found in question details.',
-              '\nparseCase(...)',
-              '\nAttempting to pull difficulty from the name...')
-        level = file_name[0].lower()
-        if level in ('e', 'm', 'h') :
-            print(f'Level found: {level}')
-        else :
-            print(f'Level not found "{level}". Defaulting to "Unknown"')
-            level = 'Unknown'
+    # Difficulty and title come solely from the official question data submodule
+    if number in question_details :
+        details = question_details[number]
+        level   = details.level
+        title   = f'[{details.title}](<https://leetcode.com/problems/{details.slug}>)'
+    else :
+        level = 'Unknown'
+        title = f'Question {number}'
 
     script_path = join(config.README_PATH, path)
     file_times  = get_file_times(script_path)
@@ -394,12 +486,6 @@ def parse_case(file_name:           str,
     if path not in file_latest_times or max(file_times) > file_latest_times[path] :
         reprocess_markdown.add(number)
         file_latest_times[path] = max(file_times)
-
-    if number in question_details :
-        details = question_details[number]
-        title = f'[{details.title}](<https://leetcode.com/problems/{details.slug}>)'
-    else :
-        title = f'Question {number}'
 
     categories = set()
     language   = file_name[file_name.rfind('.') + 1:]
@@ -443,27 +529,20 @@ def parse_context_files(context_files:      List[str],
     Attaches notes files (.txt/.md, matched by question number in the file
     name) to their question's record for inclusion in its markdown.
     '''
-    for file_name in context_files :
-        base_name = file_name.replace('\\', '/').rsplit('/', 1)[-1]
+    for readme_path in context_files :
+        readme_path = readme_path.replace('\\', '/')
+        base_name   = readme_path.rsplit('/', 1)[-1]
 
-        number_match = QUESTION_NO_PATTERN.search(base_name)
-        if not number_match :
-            print(f'Error in parsing {file_name}: no question number found in file name.',
-                  '\nparseContextFiles(...)',
-                  '\nSkipping')
-            continue
-        number = int(number_match.group())
-
-        if number not in question_data :
-            print(f'Error. No question solution found for context file ({file_name = })')
+        number = _first_question_number(base_name)
+        if number is None or number not in question_data :
             continue
 
-        question_data[number]['contextFile'] = join(config.SUBMISSIONS_PATH_FROM_README, file_name)
+        question_data[number]['contextFile'] = readme_path
 
-        path = join(config.SUBMISSIONS_DIR, file_name)
-        file_times = get_file_times(path)
-        if path not in file_latest_times or max(file_times) > file_latest_times[path] :
-            file_latest_times[path] = max(file_times)
+        script_path = join(config.README_PATH, readme_path)
+        file_times  = get_file_times(script_path)
+        if readme_path not in file_latest_times or max(file_times) > file_latest_times[readme_path] :
+            file_latest_times[readme_path] = max(file_times)
             reprocess_markdown.add(number)
 
 
@@ -482,23 +561,27 @@ def build_question_data(files:              SubmissionFiles,
     question_data      = {}
     reprocess_markdown = set()
 
-    print('Parsing code files...')
-    for file_name in files.code_files :
-        parse_case(file_name,
-                   question_data,
-                   file_latest_times,
-                   reprocess_markdown,
-                   question_details)
-
+    # Contest files take precedence: a contest solution is parsed here (with its
+    # Contest tag) and its folder is pruned from the repo-wide code-file scan, so
+    # the two never both process the same file.
     print('Parsing contest files...')
     for contest_folder, file_name in files.contest_files :
-        parse_case(file_name,
+        readme_path = join(config.SUBMISSIONS_PATH_FROM_README,
+                           contest_folder, file_name).replace('\\', '/')
+        parse_case(readme_path,
                    question_data,
                    file_latest_times,
                    reprocess_markdown,
                    question_details,
-                   sub_folder=contest_folder,
                    contest=contest_folder)
+
+    print('Parsing code files...')
+    for readme_path in files.code_files :
+        parse_case(readme_path,
+                   question_data,
+                   file_latest_times,
+                   reprocess_markdown,
+                   question_details)
 
     print('Parsing additional information/context files...')
     parse_context_files(files.context_files,
