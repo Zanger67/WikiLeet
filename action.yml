@@ -12,12 +12,15 @@ inputs:
             'Your LeetCode username'
             'Default: Zanger'
         default: "Zanger"
-    dir:
+    contest-dir:
         description: |
-            'The directory where your LeetCode submissions are stored'
-            'relative to your repo's root (defaults to "my-submissions/")'
-            'Default: my-submissions'
-        default: "my-submissions/"
+            'Extra contest container directories (comma-separated), relative to'
+            'your repo's root. Each container's immediate subfolders are treated'
+            'as individual contests. Folders named "contest"/"contests" are'
+            'auto-detected anywhere in the repo, so this is only for additional'
+            'containers that use a different name.'
+            'Default: (none)'
+        default: ""
 
 runs:
     using: "composite"
@@ -45,17 +48,6 @@ runs:
               git submodule update --recursive --remote
               cd ../
 
-        # Gets DIR from the above optional input
-        - name: Ensure designed submissions directory exists
-          shell: bash
-          run: |
-              if [ -d ${{ inputs.dir }} ]; then
-                  echo "${{ inputs.dir }} directory found"
-              else
-                  echo "${{ inputs.dir }} directory not found. Creating..."
-                  mkdir "${{ inputs.dir }}"
-              fi
-
         - name: Setup python 3.10
           uses: actions/setup-python@v4
           with:
@@ -74,7 +66,7 @@ runs:
           # -n: ignores previous .pkl stores of the modified dates (regenerate all from scratch)
           # -g: use github log history to determine creation and modification dates of files
           # -user: specify the username for the LeetCode account
-          run: python '.readme_updater/main.py' -n -g -user "${{ inputs.username }}" -dir "${{ inputs.dir }}"
+          run: python '.readme_updater/main.py' -n -g -user "${{ inputs.username }}" -contest-dir "${{ inputs['contest-dir'] }}"
 
           # Note: exit 0 should be redundant since this action triggers on a modification meaning
           #       at least one file edit, but might as well keep it in case of future changes

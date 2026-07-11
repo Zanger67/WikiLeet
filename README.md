@@ -67,8 +67,11 @@ jobs:
     -   If you create a `.txt` or `.md` file with a question number (e.g. `1234.py`), it will be inserted as a "summary" in the question's markdown. I personally use this to place my notes that I created while working on the problem. Click [here](https://github.com/Zanger67/leetcode/blob/main/markdowns/_3213.%20Construct%20String%20with%20Minimum%20Cost.md) for an example.
 
 - Contests
-  - In your submissions folder, if you want contests to be group, you can create a folder.
-  - Any questions in that folder will be attributed to the contest of the folder's name. Click [here](https://github.com/Zanger67/leetcode/tree/main/my-submissions) for an example.
+  - A **contest container** is any directory whose immediate subfolders are individual contests. Each subfolder's questions are attributed to a contest named after that subfolder (e.g. `contests/Weekly Contest 400/200. two-sum.py` → the *Weekly Contest 400* contest).
+  - Containers are found two ways, and both can contribute at once:
+    - **Auto-detected:** any folder named verbatim `contest` or `contests`, located *anywhere* in the repo.
+    - **User-specified:** additional containers (with any name) registered via the action's `contest-dir` input or the `-contest-dir` flag. Both accept **multiple** values — comma-separated (`contest-dir: 'comps/, weeklies/'`) or, for the CLI, by repeating `-contest-dir`.
+  - Click [here](https://github.com/Zanger67/leetcode/tree/main/my-submissions) for an example.
 
 - Auto-uploading submissions
   - Solution files are detected **anywhere in the repo**, not just in a dedicated folder. Any code file whose name contains the question number is picked up, using the **first 1-4 digit number** in the name (e.g. `abc1234 notes.java` → `1234`; a 5+ digit run like `abc12345.java` is ignored, and `abc123def345.java` → `123`).

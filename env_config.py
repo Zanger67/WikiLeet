@@ -62,9 +62,10 @@ USERNAME                        = None
 # (i.e. the root of the repo that imported WikiLeet)
 README_PATH                     = None
 
-# The user's solutions folder -- relative to the README, and relative to here
-SUBMISSIONS_PATH_FROM_README    = None
-SUBMISSIONS_DIR                 = None
+# Extra contest container dirs (relative to the README) registered via
+# --contest-dir / the CONTEST_DIRS env var. Folders named "contest"/"contests"
+# are auto-detected anywhere in the repo on top of these.
+CONTEST_DIRS                    = []
 
 # Question metadata (titles, AC rates, difficulties, topics, ...) parsed from
 # official LeetCode data by the question-data submodule
@@ -104,7 +105,7 @@ def init() -> None :
     `os.environ`, e.g. from CLI flags).
     '''
     global USERNAME, README_PATH
-    global SUBMISSIONS_PATH_FROM_README, SUBMISSIONS_DIR
+    global CONTEST_DIRS
     global SUBMODULE_DATA_PATH, QUESTION_DETAILS_PATH
     global DAILIES_DATA_PATH, WEEKLIES_DATA_PATH
     global HISTORY_PATH, LISTS_DIR, LANGUAGE_EQUIVS_PATH
@@ -115,8 +116,10 @@ def init() -> None :
     USERNAME                        = getenv('LEETCODE_USERNAME')
     README_PATH                     = getenv('README_PATH')
 
-    SUBMISSIONS_PATH_FROM_README    = getenv('QUESTIONS_PATH_FROM_README')
-    SUBMISSIONS_DIR                 = join(README_PATH, SUBMISSIONS_PATH_FROM_README)
+    extra_contest_dirs              = getenv('CONTEST_DIRS', '') or ''
+    CONTEST_DIRS                    = [d.strip()
+                                       for d in extra_contest_dirs.split(',')
+                                       if d.strip()]
 
     SUBMODULE_DATA_PATH             = getenv('SUBMODULE_DATA_PATH')
     QUESTION_DETAILS_PATH           = join(SUBMODULE_DATA_PATH,

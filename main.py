@@ -11,7 +11,7 @@ the repo that imported WikiLeet as a submodule.
 
 Run as a script:
 
-    python main.py [-r] [-n] [-g] [-user NAME] [-dir FOLDER]
+    python main.py [-r] [-n] [-g] [-user NAME] [-contest-dir DIR ...]
 
     -r     : Recompile every markdown file regardless of whether its source
              code files were modified or not
@@ -23,7 +23,10 @@ Run as a script:
              filesystem dates, so CI runs need this.
              WARNING: slow when run locally; fast on GitHub Actions.
     -user  : LeetCode username (overrides LEETCODE_USERNAME from .env)
-    -dir   : Solutions directory name (overrides QUESTIONS_PATH_FROM_README)
+    -contest-dir : Extra contest container dir(s) whose subfolders are each a
+             contest. Repeatable and/or comma-separated for multiple. Folders
+             named "contest"/"contests" anywhere in the repo are auto-detected
+             on top of these.
 
 Or drive the pipeline stage-by-stage from a notebook / another module (this
 is exactly what main.ipynb does -- see `main()` for the canonical order):
@@ -46,7 +49,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from functools import cache
 from os import chdir, environ, listdir, mkdir, stat, walk
-from os.path import abspath, dirname, getctime, getmtime, isdir, isfile, join, relpath
+from os.path import abspath, basename, dirname, getctime, getmtime, isdir, isfile, join, relpath
 from typing import Dict, List, NamedTuple, Set, Tuple
 
 import pandas as kungfupanda                    # pandas for dataframe to markdown exports
@@ -210,7 +213,7 @@ def _is_context_file(file_name: str) -> bool :
 class SubmissionFiles(NamedTuple) :
     '''Every repo file relevant to the generator, keyed by path from the README.'''
     code_files:     List[str]                   # solution file paths (from the README)
-    contest_files:  List[Tuple[str, str]]       # (contest folder, file name)
+    contest_files:  List[Tuple[str, str]]       # (contest name, solution path from README)
     context_files:  List[str]                   # notes file paths (from the README)
 
 
@@ -219,50 +222,33 @@ class SubmissionFiles(NamedTuple) :
 # skipped separately by the leading-dot check in discover_submission_files).
 _PRUNE_DIR_NAMES = {'__pycache__'}
 
+# Folders with either of these exact names are auto-detected as contest
+# containers anywhere in the repo (in addition to any passed via --contest-dir).
+CONTEST_DIR_NAMES = ('contest', 'contests')
 
-def _pruned_dir_abspaths(contest_folders_abs: Set[str]) -> Set[str] :
+
+def _collect_contest_dir(container_dir:  str,
+                         repo_root:      str,
+                         contest_files:  List[Tuple[str, str]],
+                         context_files:  List[str]) -> None :
     '''
-    Absolute paths of directories excluded from the repo-wide scan: this
-    generator's own folder (the `.readme_updater/` submodule), the generated
-    markdowns folder, and every contest folder (those are scanned separately and
-    take precedence). Dot-directories are excluded by name, not listed here.
+    Records every solution under one contest container: each immediate subfolder
+    is a distinct contest (its folder name is the contest title) and the code
+    files directly inside it are that contest's solutions. Appends (contest name,
+    readme path) code entries and any notes files' readme paths in place.
     '''
-    return {
-        abspath(config.SCRIPT_DIR),
-        abspath(config.MARKDOWN_DIR),
-    } | contest_folders_abs
-
-
-def _discover_contest_files() -> Tuple[Set[str], List[Tuple[str, str]], List[str]] :
-    '''
-    Finds contest solutions: each immediate subfolder of the configured
-    submissions dir is treated as a contest (unchanged legacy behavior). Returns
-    the contest folders' absolute paths (so the repo-wide walk can skip them),
-    the (folder, code file) pairs, and any contest-folder notes files' paths.
-    '''
-    if not isdir(config.SUBMISSIONS_DIR) :
-        return set(), [], []
-
-    contest_folders = [x for x in listdir(config.SUBMISSIONS_DIR)
-                       if isdir(join(config.SUBMISSIONS_DIR, x))]
-
-    folders_abs   = set()
-    contest_files = []
-    context_files = []
-    for folder in contest_folders :
-        folder_dir = join(config.SUBMISSIONS_DIR, folder)
-        folders_abs.add(abspath(folder_dir))
-
+    for folder in listdir(container_dir) :
+        folder_dir = join(container_dir, folder)
+        if folder.startswith('.') or not isdir(folder_dir) :
+            continue
         for name in listdir(folder_dir) :
             if not isfile(join(folder_dir, name)) :
                 continue
+            readme_path = relpath(join(folder_dir, name), repo_root).replace('\\', '/')
             if _is_code_file(name) :
-                contest_files.append((folder, name))
+                contest_files.append((folder, readme_path))
             elif _is_context_file(name) :
-                context_files.append(
-                    join(config.SUBMISSIONS_PATH_FROM_README, folder, name).replace('\\', '/'))
-
-    return folders_abs, contest_files, context_files
+                context_files.append(readme_path)
 
 
 def discover_submission_files() -> SubmissionFiles :
@@ -272,24 +258,42 @@ def discover_submission_files() -> SubmissionFiles :
     files, whose parent folder) carries a question number counts as a solution --
     regardless of whether it lives in a dedicated submissions folder.
 
-    Contest folders are discovered separately and take precedence (they are
-    pruned from the repo-wide walk); every dot-directory (`.git/`, `.github/`,
-    `.readme_updater/`, ...), the generator's own folder, and the markdowns
-    folder are skipped.
+    Contests come from *contest container* directories, whose immediate subfolders
+    are the individual contests. A directory is a container if its name is
+    verbatim `contest`/`contests` (auto-detected anywhere in the repo) or if it
+    was registered via `--contest-dir` (config.CONTEST_DIRS, which may list
+    several). Container subfolders are handled here and pruned from the generic
+    walk, so no file is parsed twice.
+
+    Every dot-directory (`.git/`, `.github/`, `.readme_updater/`, ...), the
+    generator's own folder, the markdowns folder, and `__pycache__/` are skipped.
     '''
-    repo_root = abspath(config.README_PATH)
+    repo_root     = abspath(config.README_PATH)
+    pruned_fixed  = {abspath(config.SCRIPT_DIR), abspath(config.MARKDOWN_DIR)}
+    extra_contest = {abspath(join(repo_root, d)) for d in config.CONTEST_DIRS}
+    extra_contest.discard(repo_root)            # the repo root itself is never a container
 
-    contest_folders_abs, contest_files, context_files = _discover_contest_files()
-    pruned = _pruned_dir_abspaths(contest_folders_abs)
-
-    code_files = []
+    code_files    = []
+    contest_files = []
+    context_files = []
     for dir_path, dir_names, file_names in walk(repo_root) :
-        # Prune excluded directories in-place so walk() won't descend into them:
-        # any dot-directory, __pycache__, the generator/markdowns/contest folders
-        dir_names[:] = [d for d in dir_names
-                        if not d.startswith('.')
-                        and d not in _PRUNE_DIR_NAMES
-                        and abspath(join(dir_path, d)) not in pruned]
+        is_container = (basename(dir_path) in CONTEST_DIR_NAMES and abspath(dir_path) != repo_root) \
+                       or abspath(dir_path) in extra_contest
+
+        if is_container :
+            # Every subfolder here is a contest; collect them and stop descending
+            # (their files are contest solutions, not generic ones). Files sitting
+            # directly in the container still fall through as generic solutions.
+            _collect_contest_dir(dir_path, repo_root, contest_files, context_files)
+            dir_names[:] = []
+        else :
+            # Prune dot-dirs, __pycache__, and the generator/markdowns folders in
+            # place; contest containers are left in so walk() descends and detects
+            # them on the next iteration.
+            dir_names[:] = [d for d in dir_names
+                            if not d.startswith('.')
+                            and d not in _PRUNE_DIR_NAMES
+                            and abspath(join(dir_path, d)) not in pruned_fixed]
 
         for name in file_names :
             readme_path = relpath(join(dir_path, name), repo_root).replace('\\', '/')
@@ -323,8 +327,7 @@ def load_git_timestamps(files: SubmissionFiles) -> None :
 
     paths = (list(files.context_files)
              + list(files.code_files)
-             + [join(config.SUBMISSIONS_PATH_FROM_README, folder, name).replace('\\', '/')
-                for folder, name in files.contest_files])
+             + [readme_path for _, readme_path in files.contest_files])
 
     print('Beginning parsing of git logs for file creation and modification dates...')
     cmd = 'git log -M --format=%ct --reverse --'.split()
@@ -565,15 +568,13 @@ def build_question_data(files:              SubmissionFiles,
     # Contest tag) and its folder is pruned from the repo-wide code-file scan, so
     # the two never both process the same file.
     print('Parsing contest files...')
-    for contest_folder, file_name in files.contest_files :
-        readme_path = join(config.SUBMISSIONS_PATH_FROM_README,
-                           contest_folder, file_name).replace('\\', '/')
+    for contest_name, readme_path in files.contest_files :
         parse_case(readme_path,
                    question_data,
                    file_latest_times,
                    reprocess_markdown,
                    question_details,
-                   contest=contest_folder)
+                   contest=contest_name)
 
     print('Parsing code files...')
     for readme_path in files.code_files :
@@ -1325,10 +1326,13 @@ def parse_cli_args() -> argparse.Namespace :
                         default='',
                         help='LeetCode Username',
                         required=False)
-    parser.add_argument('-dir',
+    parser.add_argument('-contest-dir',
                         type=str,
-                        default='',
-                        help='Solutions directory name; default of "my-submissions/"',
+                        action='append',
+                        default=None,
+                        help='Extra contest container dir(s) whose subfolders are each a '
+                             'contest; repeatable and/or comma-separated. Folders named '
+                             '"contest"/"contests" are auto-detected on top of these.',
                         required=False)
 
     return parser.parse_args()
@@ -1347,9 +1351,15 @@ if __name__ == '__main__' :
     # resolves its values from it
     if args.user :
         environ['LEETCODE_USERNAME'] = args.user
-    if args.dir :
-        environ['QUESTIONS_PATH_FROM_README'] = args.dir if args.dir.endswith('/') \
-                                                else f'{args.dir}/'
+    if args.contest_dir :
+        # -contest-dir may be repeated and/or comma-separated -> flatten to one
+        # comma-joined list the config parses into config.CONTEST_DIRS
+        contest_dirs = [d.strip()
+                        for item in args.contest_dir
+                        for d in item.split(',')
+                        if d.strip()]
+        if contest_dirs :
+            environ['CONTEST_DIRS'] = ','.join(contest_dirs)
 
     config.init()
 
@@ -1357,7 +1367,7 @@ if __name__ == '__main__' :
     no_record       = bool(args.n or args.norecord)
     recalculate_all = bool(args.r)
 
-    print('Solutions directory'.ljust(20), config.SUBMISSIONS_PATH_FROM_README)
+    print('Extra contest dirs'.ljust(20), config.CONTEST_DIRS or '(none)')
     print('No record'.ljust(20), 'on' if no_record else 'off')
     print('Recalculate'.ljust(20), 'on' if recalculate_all else 'off')
     print('Use Git dates'.ljust(20), 'on' if USE_GIT_DATES else 'off')
