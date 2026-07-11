@@ -137,6 +137,17 @@ def _parse_git_log_times(cmd: List[str]) -> Tuple[datetime, datetime] :
                     for line in process.stdout.readlines()
                     if line.strip()]
 
+    # No commit history (untracked/uncommitted file, or a path git can't trace)
+    # means no timestamps. Fall back to this one file's filesystem dates rather
+    # than aborting the whole run -- matches the non-`-g` behavior for the file.
+    if not commit_times :
+        print(f'No git history for {cmd[-1]!r}; using filesystem dates instead.')
+        try :
+            return _filesystem_times(join(config.README_PATH, cmd[-1]))
+        except FileNotFoundError :
+            now = datetime.now()
+            return (now, now)
+
     try :
         creation_date = datetime.fromtimestamp(int(min(commit_times)))
         modified_date = datetime.fromtimestamp(int(max(commit_times)))
